@@ -1,0 +1,40 @@
+# Python generated files
+__pycache__/
+*.pyc
+*.pyd
+dist/
+build/
+eggs/
+.ipynb_checkpoints/
+
+# Virtual environment
+music_venv/
+venv/
+env/
+.venv/
+
+# Data and model files (large and generated)
+data/preprocessed/
+*.pkl
+*.npy
+models/trained/
+model_metrics.txt
+training_history.png
+
+# Streamlit cache
+.streamlit/cache/  # Add this if you use Streamlit's cache
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Jupyter Notebook temporary files
+.jupyter/
