@@ -299,6 +299,27 @@ def _build_latent_candidate_pool(
     return candidates
 
 
+def _top_k_by_column(
+    dataframe: pd.DataFrame,
+    column: str,
+    k: int,
+) -> pd.DataFrame:
+    """
+    Unordered top-k selection by `column`, O(n) via argpartition instead of
+    a full O(n log n) sort_values -- correct here because every caller's
+    result gets re-sorted by ranking_score in rank_candidates anyway, so
+    order within this top-k slice is thrown away regardless.
+    """
+
+    if column not in dataframe.columns or len(dataframe) <= k:
+        return dataframe
+
+    values = dataframe[column].to_numpy(dtype=float)
+    values = np.where(np.isnan(values), -np.inf, values)
+    top_positions = np.argpartition(-values, k - 1)[:k]
+    return dataframe.iloc[top_positions]
+
+
 def _genre_match_mask(
     dataframe: pd.DataFrame,
     selected_genre: str,
@@ -308,16 +329,26 @@ def _genre_match_mask(
     with `selected_genre`. Computed once per request and shared between the
     genre pool and the (now genre-scoped) popularity pool, so the two don't
     each run an independent full-catalog genre-family scan.
+
+    infer_genre_families does several substring/token scans per call, so
+    it's evaluated once per UNIQUE genre string (~114 on the real catalog)
+    rather than once per row (68,660) -- a >500x reduction in calls to it
+    per request (docs/FINDINGS.md finding 9).
     """
 
     selected_families = infer_genre_families(selected_genre)
 
-    def matches(row_genre: str) -> bool:
-        if row_genre == selected_genre:
-            return True
-        return bool(selected_families & infer_genre_families(row_genre))
+    genre_column = dataframe["track_genre"]
+    unique_genres = genre_column.unique()
+    family_by_genre = {
+        genre: infer_genre_families(genre) for genre in unique_genres
+    }
 
-    return dataframe["track_genre"].apply(matches)
+    family_match = genre_column.map(
+        lambda genre: bool(selected_families & family_by_genre[genre])
+    )
+    exact_match = genre_column == selected_genre
+    return exact_match | family_match
 
 
 def _build_genre_candidate_pool(
@@ -331,11 +362,7 @@ def _build_genre_candidate_pool(
         return genre_df
 
     genre_df["source_genre"] = 1
-    genre_df = genre_df.sort_values(
-        "popularity",
-        ascending=False,
-    ).head(limit)
-    return genre_df
+    return _top_k_by_column(genre_df, "popularity", limit)
 
 
 def _build_popularity_candidate_pool(
@@ -354,13 +381,7 @@ def _build_popularity_candidate_pool(
     popularity_df = dataframe[match_mask].copy() if match_mask.any() else dataframe.copy()
     popularity_df["source_popularity"] = 1
 
-    if "popularity" in popularity_df.columns:
-        popularity_df = popularity_df.sort_values(
-            "popularity",
-            ascending=False,
-        )
-
-    return popularity_df.head(limit)
+    return _top_k_by_column(popularity_df, "popularity", limit)
 
 
 def _build_audio_candidate_pool(
@@ -383,11 +404,7 @@ def _build_audio_candidate_pool(
     position_mask = np.arange(len(dataframe)) != selected_index
     audio_df = audio_df.loc[position_mask]
     audio_df["source_audio"] = 1
-    audio_df = audio_df.sort_values(
-        "audio_similarity",
-        ascending=False,
-    ).head(limit)
-    return audio_df
+    return _top_k_by_column(audio_df, "audio_similarity", limit)
 
 
 def build_candidate_pool(

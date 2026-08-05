@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
 from sklearn.decomposition import PCA
 
 
@@ -90,9 +89,18 @@ def plot_feature_heatmap(
 def plot_tracks_by_genre(
     latent_features: np.ndarray,
     dataframe: pd.DataFrame,
+    sample_per_genre: int = 200,
+    max_points: int = 8000,
+    random_state: int = 42,
 ) -> go.Figure:
     """
     Visualize latent embeddings using PCA.
+
+    Renders a fixed-seed stratified sample rather than every track: at
+    68,660 rows / 114 genre traces, shipping every point serialized the
+    full catalog to the browser on every render (docs/FINDINGS.md
+    finding 9). PCA itself still runs on the full matrix -- only the
+    rendered subset is capped.
     """
 
     projection = calculate_pca(
@@ -108,9 +116,21 @@ def plot_tracks_by_genre(
         ],
     )
 
-    plot_df["Genre"] = dataframe["track_genre"]
-    plot_df["Track"] = dataframe["track_name"]
-    plot_df["Artist"] = dataframe["artists"]
+    plot_df["Genre"] = dataframe["track_genre"].to_numpy()
+    plot_df["Track"] = dataframe["track_name"].to_numpy()
+    plot_df["Artist"] = dataframe["artists"].to_numpy()
+
+    if len(plot_df) > max_points:
+        sampled_groups = [
+            group.sample(
+                n=min(len(group), sample_per_genre),
+                random_state=random_state,
+            )
+            for _, group in plot_df.groupby("Genre")
+        ]
+        plot_df = pd.concat(sampled_groups, ignore_index=True)
+        if len(plot_df) > max_points:
+            plot_df = plot_df.sample(n=max_points, random_state=random_state)
 
     fig = px.scatter_3d(
         plot_df,

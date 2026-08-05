@@ -33,6 +33,7 @@ training_history.png
 reports/*.json
 !reports/baseline.json
 !reports/phase1.json
+!reports/phase3.json
 
 # OS specific files
 .DS_Store
