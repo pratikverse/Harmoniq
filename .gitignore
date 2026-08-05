@@ -23,8 +23,13 @@ training_history.png
 !models/*.pkl
 !models/*.npy
 
-# Streamlit cache
-.streamlit/cache/  # Add this if you use Streamlit's cache
+# Streamlit cache and secrets
+.streamlit/cache/
+.streamlit/secrets.toml
+
+# Evaluation reports (baseline.json is committed deliberately -- see docs/IMPROVEMENT_PLAN.md)
+reports/*.json
+!reports/baseline.json
 
 # OS specific files
 .DS_Store
