@@ -17,45 +17,6 @@ MOOD_ORDER = [
     "Sad",
 ]
 
-MOOD_RULES = {
-    "Workout": {
-        "energy": 0.80,
-        "tempo": 125.0,
-        "valence": 0.55,
-    },
-    "Study": {
-        "acousticness": 0.45,
-        "instrumentalness": 0.20,
-        "energy_max": 0.55,
-        "speechiness_max": 0.12,
-        "danceability_max": 0.65,
-    },
-    "Sleep": {
-        "acousticness": 0.55,
-        "energy_max": 0.35,
-        "tempo_max": 95.0,
-        "valence_max": 0.55,
-        "loudness_max": -6.0,
-    },
-    "Party": {
-        "danceability": 0.72,
-        "energy": 0.72,
-        "valence": 0.60,
-        "tempo": 115.0,
-    },
-    "Happy": {
-        "valence": 0.68,
-        "energy": 0.55,
-        "danceability": 0.55,
-    },
-    "Sad": {
-        "valence_max": 0.38,
-        "energy_max": 0.50,
-        "acousticness": 0.30,
-    },
-}
-
-
 def _safe_float(row: pd.Series, feature: str) -> float:
     return safe_float(row.get(feature, 0.0))
 
@@ -121,18 +82,6 @@ def score_track_moods(track: pd.Series) -> dict[str, float]:
         mood: round(max(0.0, min(score, 1.0)), 4)
         for mood, score in scores.items()
     }
-
-
-def pick_primary_mood(track: pd.Series) -> str:
-    """
-    Choose the best-fit mood label for a track.
-    """
-
-    scores = score_track_moods(track)
-    return max(
-        MOOD_ORDER,
-        key=lambda mood: (scores[mood], -MOOD_ORDER.index(mood)),
-    )
 
 
 def assign_moods(dataframe: pd.DataFrame) -> pd.DataFrame:
