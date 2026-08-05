@@ -5,6 +5,7 @@ __pycache__/
 dist/
 build/
 eggs/
+*.egg-info/
 .ipynb_checkpoints/
 
 # Virtual environment
@@ -14,10 +15,7 @@ env/
 .venv/
 
 # Data and model files (large and generated)
-data/preprocessed/
 models/trained/
-model_metrics.txt
-training_history.png
 
 # models/catalog.parquet, embedding.npy, scaler.pkl, manifest.json are
 # the deployed inference artifacts and are committed deliberately -- see

@@ -1,60 +1,114 @@
-# 🎵 Music Recommendation System
+# TuneMatch
 
-An intelligent **music recommendation system** that suggests sonically similar tracks using deep learning and nearest-neighbor search — deployed as an interactive **Streamlit web app**.
+A hybrid music recommendation system over a ~89,500-track Spotify catalog, deployed as an
+interactive Streamlit app: search or browse for a track, get ranked recommendations blending
+audio-feature similarity, genre-family matching, and popularity — each with a per-feature
+explanation of why it was picked. Also includes mood-based discovery, a genre explorer, a
+playlist builder, and a 3D latent-space visualization.
 
----
+## Hard constraint: the catalog is frozen
 
-## ✨ Overview
-It learns meaningful representations of music using a **deep autoencoder**, then identifies similar tracks via **K-Nearest Neighbors (KNN)** in a latent feature space. This approach enables accurate recommendations even across diverse genres, presented through a clean and interactive web interface.
+Spotify deprecated the Audio Features, Audio Analysis, and Recommendations endpoints for new
+API applications on 2024-11-27, and closed the extended-access application route since. This
+means:
 
----
+- **The catalog cannot be refreshed or extended.** It's a fixed snapshot of an API that no
+  longer exists for new applications. `python -m src.training.train` re-downloads and
+  re-processes the same frozen [HuggingFace dataset](https://huggingface.co/datasets/maharshipandya/spotify-tracks-dataset);
+  it does not and cannot pull new tracks.
+- **Audio features for any track outside the catalog are unobtainable.** There is no
+  "paste a Spotify link, get recommendations for it" path.
+- `popularity` scores are frozen at whatever they were when the dataset was collected.
 
-## 🚀 Features
-- 🎧 **Personalized Recommendations** – Select a track and receive **9 similar songs**
-- 🌈 **3D Genre Visualization** – Explore genre relationships in latent space
-- 🖥️ **Interactive Web App** – Seamless exploration with Streamlit
+What's still achievable without any API credentials — and what this app uses — is the public
+embed player (`open.spotify.com/embed/track/<id>`) and `spotify:track:<id>` deep links.
 
----
+## How recommendations work
 
-## ⚙️ How It Works
+1. **Search** — typo-tolerant fuzzy matching over track title/artist (RapidFuzz).
+2. **Retrieval** — cosine-nearest-neighbor search over a 9-dimensional scaled-audio-feature
+   embedding (danceability, energy, loudness, speechiness, acousticness, instrumentalness,
+   liveness, valence, tempo). There is no autoencoder or other learned embedding — see
+   [`docs/FINDINGS.md`](docs/FINDINGS.md) for why that was retired.
+3. **Hybrid ranking** — candidates from four pools (latent-KNN, genre-family, popularity,
+   raw-audio-similarity) are scored and blended: `latent_similarity`, `audio_similarity`,
+   `genre_score`, `popularity_score`, `source_support_score` (how many pools agreed), each
+   weighted per "recommendation style" (Balanced, Same vibe, Same genre, Discovery, More
+   popular, More energetic) or by hand via the "Advanced: tune the mix" sliders.
+4. **Diversification** — results are capped at 2 tracks per artist.
+5. **Explanation** — each card shows the score breakdown and which audio features were closest.
 
-### 1. Preprocessing
-- Spotify dataset sourced from **HuggingFace**
-- Selection of numeric audio features (danceability, energy, loudness, etc.)
-- Feature scaling using **StandardScaler**
-- Genre encoding for visualization
+## Running locally
 
-### 2. Feature Extraction
-- A **deep autoencoder** compresses high-dimensional audio features
-- Encoder outputs a compact **latent representation** for each track
+```bash
+pip install -r requirements.txt
+streamlit run src/ui/app.py
+```
 
-### 3. Similarity Modeling
-- **KNN** trained on latent vectors
-- **Cosine similarity** used to measure track closeness
+Requires the artifacts already committed under `models/` (`catalog.parquet`, `embedding.npy`,
+`scaler.pkl`, `manifest.json`) — no separate download step needed to run the app.
 
-### 4. Recommendation Engine
-- Given a selected song, KNN retrieves nearest neighbors
-- Top **9 most similar tracks** returned as recommendations
+## Rebuilding the catalog and embedding
 
-### 5. Web Application
-- Built using **Streamlit**
-- Song selection with audio preview
-- Interactive **3D genre plot** using Plotly
+```bash
+pip install -r requirements-train.txt   # adds `datasets`, for the HuggingFace download
+python -m src.training.train
+```
 
----
+This re-downloads the raw dataset, deduplicates by `track_id` (the raw data relists the same
+recording under multiple genre labels), applies validity filters (not a statistical outlier
+filter — see finding 4 in `docs/FINDINGS.md` for why that distinction matters), winsorizes and
+log-transforms the skewed features, fits a `StandardScaler`, and overwrites `models/`.
 
-## 🛠️ Tech Stack
-- Python  
-- TensorFlow / Keras  
-- Scikit-learn  
-- Streamlit  
-- Plotly  
+## Evaluation
 
----
+```bash
+python -m src.evaluation.run --run-id my-run --out reports/
+python -m src.evaluation.run --compare reports/baseline.json reports/my-run.json
+```
 
-## 🎯 Use Cases
-- Music discovery platforms  
-- Personalized recommendation systems  
-- Audio feature analysis & visualization  
+There's no user-interaction data, so there's no precision@k/recall@k/NDCG — see
+`src/evaluation/metrics.py`'s module docstring for what's measured instead (genre consistency,
+novelty, diversity, personalization, self-recommendation rate, latency) and why those metrics
+are sanity checks, not proof of recommendation quality, on their own.
 
----
+`reports/` holds one committed report per landmark change (`baseline.json` is the pre-any-fix
+state) so results are diffable across the project's history.
+
+## Project layout
+
+```
+src/
+  config.py              paths, dataset name, seed
+  models/
+    catalog.py            dataset download -> dedupe -> validity filters -> winsorize
+    embedding.py           the scaled-feature retrieval embedding
+    features.py            shared audio-feature constants
+    recommender.py          candidate pools, hybrid ranking, diversification
+    search.py               fuzzy search
+    genre.py, mood.py       genre-family matching, mood scoring
+    explain.py               per-recommendation explanation
+    visualization.py         3D latent-space plot, feature-correlation heatmap
+    artifacts.py              save/load the inference artifact bundle
+  evaluation/               metrics + harness + CLI (see above)
+  training/train.py          rebuild entrypoint
+  ui/
+    app.py                    entry point: theme, shared metrics row, navigation
+    pages/                     one module per page (recommend, mood, genre, playlist, visualize)
+    state.py, resources.py, components.py, theme.py
+tests/
+  unit/                      pure-function tests, synthetic catalog fixture
+  evaluation/                 quality-gate tests against the real artifacts
+  ui/                         Streamlit AppTest smokes
+docs/
+  IMPROVEMENT_PLAN.md          the phased plan this codebase was built from
+  FINDINGS.md                  the audit backing it
+```
+
+## Testing
+
+```bash
+pip install -e .[dev]
+pytest                          # full suite, needs the real models/ artifacts
+pytest -m "not needs_artifacts"  # skips artifact-dependent tests (what CI runs)
+```

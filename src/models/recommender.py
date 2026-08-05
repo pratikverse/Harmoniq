@@ -4,8 +4,6 @@ Recommendation engine for TuneMatch.
 
 from __future__ import annotations
 
-from itertools import product
-
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import NearestNeighbors
@@ -199,23 +197,6 @@ def compute_audio_similarity_scores(
     return weighted_similarity / total_weight
 
 
-def compute_audio_similarity(
-    selected_song: pd.Series,
-    candidate_song: pd.Series,
-    intent: str = "Balanced",
-) -> float:
-    """
-    Single-row audio similarity helper.
-    """
-
-    candidate_df = pd.DataFrame([candidate_song])
-    return float(
-        compute_audio_similarity_scores(
-            selected_song,
-            candidate_df,
-            intent=intent,
-        )[0]
-    )
 
 
 def compute_genre_score(
@@ -687,69 +668,6 @@ def recommend_tracks(
     )
 
     return candidates.head(n_recommendations)
-
-
-def tune_weight_profiles(
-    dataframe: pd.DataFrame,
-    latent_features: np.ndarray,
-    knn: NearestNeighbors,
-    sample_track_indices: list[int],
-) -> pd.DataFrame:
-    """
-    Lightweight offline comparison across intent profiles.
-
-    This does not learn from user feedback, but it provides a practical
-    evaluation foundation for comparing ranking profiles instead of guessing.
-    """
-
-    rows = []
-
-    for intent, track_index in product(
-        INTENT_WEIGHT_PROFILES.keys(),
-        sample_track_indices,
-    ):
-        recommendations = recommend_tracks(
-            track_index=track_index,
-            dataframe=dataframe,
-            latent_features=latent_features,
-            knn=knn,
-            n_recommendations=10,
-            intent=intent,
-        )
-
-        if recommendations.empty:
-            continue
-
-        rows.append(
-            {
-                "intent": intent,
-                "track_index": track_index,
-                "avg_latent_similarity": recommendations[
-                    "latent_similarity"
-                ].mean(),
-                "avg_audio_similarity": recommendations[
-                    "audio_similarity"
-                ].mean(),
-                "avg_genre_score": recommendations[
-                    "genre_score"
-                ].mean(),
-                "avg_popularity_score": recommendations[
-                    "popularity_score"
-                ].mean(),
-                "artist_diversity": recommendations[
-                    "artists"
-                ].nunique()
-                / max(len(recommendations), 1),
-                "avg_source_support": recommendations[
-                    "source_support_score"
-                ].mean(),
-                "avg_final_score": recommendations[
-                    "ranking_score"
-                ].mean(),
-            }
-        )
-
-    return pd.DataFrame(rows)
 
 
 def get_track_details(
