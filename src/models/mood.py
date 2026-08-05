@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.models.features import safe_float
 
 MOOD_ORDER = [
     "Workout",
@@ -56,10 +57,7 @@ MOOD_RULES = {
 
 
 def _safe_float(row: pd.Series, feature: str) -> float:
-    value = row.get(feature, 0.0)
-    if pd.isna(value):
-        return 0.0
-    return float(value)
+    return safe_float(row.get(feature, 0.0))
 
 
 def score_track_moods(track: pd.Series) -> dict[str, float]:

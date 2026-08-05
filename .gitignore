@@ -27,9 +27,12 @@ training_history.png
 .streamlit/cache/
 .streamlit/secrets.toml
 
-# Evaluation reports (baseline.json is committed deliberately -- see docs/IMPROVEMENT_PLAN.md)
+# Evaluation reports -- one committed per landed phase (baseline.json,
+# phase1.json, ...) so each can be diffed against the last; see
+# docs/IMPROVEMENT_PLAN.md. Ad-hoc/exploratory runs stay gitignored.
 reports/*.json
 !reports/baseline.json
+!reports/phase1.json
 
 # OS specific files
 .DS_Store
