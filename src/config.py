@@ -10,11 +10,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DATA_DIR = PROJECT_ROOT / "data"
 MODELS_DIR = PROJECT_ROOT / "models"
-
-DATA_DIR.mkdir(exist_ok=True)
-MODELS_DIR.mkdir(exist_ok=True)
 
 # =============================================================================
 # Dataset
@@ -22,25 +18,7 @@ MODELS_DIR.mkdir(exist_ok=True)
 
 DATASET_NAME = "maharshipandya/spotify-tracks-dataset"
 
-# =============================================================================
-# Training Hyperparameters
-# =============================================================================
-
-ENCODING_DIM = 8
-
-EPOCHS = 50
-
-BATCH_SIZE = 128
-
-VALIDATION_SPLIT = 0.20
-
-LEARNING_RATE = 1e-3
-
-L1_REG = 1e-5
-
-L2_REG = 1e-4
-
-DROPOUT_RATE = 0.20
+SEED = 42
 
 # =============================================================================
 # KNN
@@ -50,22 +28,23 @@ KNN_METRIC = "cosine"
 
 KNN_ALGORITHM = "brute"
 
-KNN_NEIGHBORS = 20
-
 # =============================================================================
 # Artifact Paths
+#
+# Phase 4 (docs/IMPROVEMENT_PLAN.md) replaced the autoencoder + KNN pickle
+# + LabelEncoder with: a deduplicated parquet catalog, a scaled-feature
+# embedding (no autoencoder -- see docs/FINDINGS.md finding 12), and a
+# scaler. The KNN index itself is rebuilt from the embedding at load time
+# (sklearn's brute-force NearestNeighbors.fit is O(1); it just stores a
+# reference to the matrix) instead of being pickled, which removes a
+# sklearn-version-fragile artifact for no benefit -- it held nothing but
+# the same matrix already in embedding.npy.
 # =============================================================================
 
-AUTOENCODER_PATH = MODELS_DIR / "autoencoder.keras"
+CATALOG_PATH = MODELS_DIR / "catalog.parquet"
 
-ENCODER_PATH = MODELS_DIR / "encoder.keras"
+EMBEDDING_PATH = MODELS_DIR / "embedding.npy"
 
 SCALER_PATH = MODELS_DIR / "scaler.pkl"
 
-LABEL_ENCODER_PATH = MODELS_DIR / "label_encoder.pkl"
-
-KNN_MODEL_PATH = MODELS_DIR / "knn_model.pkl"
-
-LATENT_FEATURES_PATH = MODELS_DIR / "latent_features.npy"
-
-DATAFRAME_PATH = MODELS_DIR / "df_processed.pkl"
+MANIFEST_PATH = MODELS_DIR / "manifest.json"

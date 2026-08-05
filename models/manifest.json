@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "created_utc": "2026-08-05T16:45:29.505844+00:00",
+  "seed": 42,
+  "dataset_name": "maharshipandya/spotify-tracks-dataset",
+  "n_tracks": 89571,
+  "n_genres": 113,
+  "feature_columns": [
+    "danceability",
+    "energy",
+    "loudness",
+    "speechiness",
+    "acousticness",
+    "instrumentalness",
+    "liveness",
+    "valence",
+    "tempo"
+  ],
+  "embedding_kind": "scaled_features",
+  "embedding_dim": 9,
+  "genre_counts_min": 74,
+  "genre_counts_max": 1000
+}
