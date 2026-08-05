@@ -19,9 +19,9 @@ models/trained/
 model_metrics.txt
 training_history.png
 
-# Keep deployed inference artifacts in version control
-!models/*.pkl
-!models/*.npy
+# models/catalog.parquet, embedding.npy, scaler.pkl, manifest.json are
+# the deployed inference artifacts and are committed deliberately -- see
+# docs/IMPROVEMENT_PLAN.md Phase 4.
 
 # Streamlit cache and secrets
 .streamlit/cache/
@@ -34,6 +34,7 @@ reports/*.json
 !reports/baseline.json
 !reports/phase1.json
 !reports/phase3.json
+!reports/phase4.json
 
 # OS specific files
 .DS_Store

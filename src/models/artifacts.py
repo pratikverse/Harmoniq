@@ -1,81 +1,29 @@
 """
-Utilities for saving and loading model artifacts.
+Save/load the inference artifact bundle: catalog, embedding, scaler, and
+a manifest. No autoencoder, encoder, LabelEncoder, or pickled KNN index
+-- see src/models/embedding.py and docs/IMPROVEMENT_PLAN.md Phase 4 for
+why the autoencoder was retired, and src/config.py for why the KNN index
+is rebuilt at load time instead of pickled.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
 
-from tensorflow.keras.models import Model, load_model
-
 from src.config import (
-    AUTOENCODER_PATH,
-    ENCODER_PATH,
+    CATALOG_PATH,
+    EMBEDDING_PATH,
+    MANIFEST_PATH,
     SCALER_PATH,
-    LABEL_ENCODER_PATH,
-    KNN_MODEL_PATH,
-    LATENT_FEATURES_PATH,
-    DATAFRAME_PATH,
 )
 
+SCHEMA_VERSION = 2
 
-# ==========================================================
-# Save Functions
-# ==========================================================
-
-def save_artifacts(
-    autoencoder: Model,
-    encoder: Model,
-    scaler,
-    label_encoder,
-    knn,
-    dataframe: pd.DataFrame,
-    latent_features: np.ndarray,
-) -> None:
-    """
-    Save every artifact required for inference.
-    """
-
-    print("\nSaving trained artifacts...")
-
-    autoencoder.save(AUTOENCODER_PATH)
-
-    encoder.save(ENCODER_PATH)
-
-    joblib.dump(
-        scaler,
-        SCALER_PATH,
-    )
-
-    joblib.dump(
-        label_encoder,
-        LABEL_ENCODER_PATH,
-    )
-
-    joblib.dump(
-        knn,
-        KNN_MODEL_PATH,
-    )
-
-    dataframe.to_pickle(
-        DATAFRAME_PATH,
-    )
-
-    np.save(
-        LATENT_FEATURES_PATH,
-        latent_features,
-    )
-
-    print("Artifacts saved successfully.")
-
-
-# ==========================================================
-# Individual Loaders
-# ==========================================================
 
 def _ensure_artifact_exists(path: Path) -> Path:
     """
@@ -88,70 +36,74 @@ def _ensure_artifact_exists(path: Path) -> Path:
         )
     return path
 
-def load_autoencoder() -> Model:
-    """
-    Load the trained autoencoder.
-    """
-    return load_model(_ensure_artifact_exists(AUTOENCODER_PATH))
 
+def save_bundle(
+    dataframe: pd.DataFrame,
+    latent_features: np.ndarray,
+    scaler,
+    manifest: dict,
+) -> None:
+    """
+    Save every artifact required for inference.
+    """
 
-def load_encoder() -> Model:
-    """
-    Load the trained encoder.
-    """
-    return load_model(_ensure_artifact_exists(ENCODER_PATH))
+    dataframe.to_parquet(CATALOG_PATH)
+    np.save(EMBEDDING_PATH, latent_features)
+    joblib.dump(scaler, SCALER_PATH)
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
 
 
 def load_dataframe() -> pd.DataFrame:
     """
-    Load processed dataframe.
+    Load the deduplicated catalog.
     """
-    return pd.read_pickle(_ensure_artifact_exists(DATAFRAME_PATH))
+    return pd.read_parquet(_ensure_artifact_exists(CATALOG_PATH))
 
 
 def load_latent_features() -> np.ndarray:
     """
-    Load latent embeddings.
+    Load the scaled-feature embedding.
     """
-    return np.load(_ensure_artifact_exists(LATENT_FEATURES_PATH))
-
-
-def load_knn():
-    """
-    Load trained KNN model.
-    """
-    return joblib.load(_ensure_artifact_exists(KNN_MODEL_PATH))
+    return np.load(_ensure_artifact_exists(EMBEDDING_PATH))
 
 
 def load_scaler():
     """
-    Load fitted StandardScaler.
+    Load the fitted StandardScaler.
     """
     return joblib.load(_ensure_artifact_exists(SCALER_PATH))
 
 
-def load_label_encoder():
-    """
-    Load fitted LabelEncoder.
-    """
-    return joblib.load(_ensure_artifact_exists(LABEL_ENCODER_PATH))
+def load_manifest() -> dict:
+    return json.loads(_ensure_artifact_exists(MANIFEST_PATH).read_text())
 
 
-# ==========================================================
-# Convenience Loader
-# ==========================================================
+def load_knn(latent_features: np.ndarray | None = None):
+    """
+    Build the KNN index from the embedding. sklearn's brute-force
+    NearestNeighbors.fit is O(1) -- it just stores a reference to the
+    matrix -- so rebuilding at load time costs nothing and avoids
+    pickling a sklearn object across version upgrades.
+    """
+    from src.models.recommender import build_knn_model
+
+    if latent_features is None:
+        latent_features = load_latent_features()
+    return build_knn_model(latent_features)
+
 
 def load_artifacts() -> dict:
     """
     Load every artifact needed by the application.
     """
 
+    dataframe = load_dataframe()
+    latent_features = load_latent_features()
+
     return {
-        "autoencoder": load_autoencoder(),
-        "encoder": load_encoder(),
+        "dataframe": dataframe,
+        "latent_features": latent_features,
+        "knn": load_knn(latent_features),
         "scaler": load_scaler(),
-        "label_encoder": load_label_encoder(),
-        "knn": load_knn(),
-        "dataframe": load_dataframe(),
-        "latent_features": load_latent_features(),
+        "manifest": load_manifest(),
     }
