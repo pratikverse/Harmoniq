@@ -112,6 +112,19 @@ def get_weight_profile(intent: str) -> dict[str, float]:
     ).copy()
 
 
+def normalize_weights(weights: dict[str, float]) -> dict[str, float]:
+    """
+    Scale a weights dict so its values sum to 1.0, keeping scores
+    comparable to the fixed intent presets. Used by the UI weight
+    sliders (raw slider values rarely sum to 1.0 on their own).
+    """
+
+    total = sum(weights.values())
+    if total <= 0:
+        return get_weight_profile("Balanced")
+    return {key: value / total for key, value in weights.items()}
+
+
 def get_audio_feature_weights(intent: str) -> dict[str, float]:
     """
     Resolve the active audio-feature weights for an intent.
@@ -632,9 +645,15 @@ def recommend_tracks(
     n_neighbors: int = 80,
     n_recommendations: int = 10,
     intent: str = "Balanced",
+    weights: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """
     Recommend tracks using multi-source hybrid scoring.
+
+    `weights` overrides the intent profile's ranking weights (e.g. from
+    UI sliders) without changing which candidate pools are built --
+    intent still controls pool construction (audio-feature weighting,
+    genre/popularity scoping).
     """
 
     if track_index >= len(dataframe):
@@ -653,6 +672,7 @@ def recommend_tracks(
         selected_song,
         candidates,
         intent=intent,
+        weights=weights,
     )
 
     candidates = candidates.drop_duplicates(
