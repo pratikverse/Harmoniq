@@ -11,37 +11,17 @@ import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 
 from src.config import KNN_ALGORITHM, KNN_METRIC
+from src.models.features import (
+    AUDIO_FEATURE_WEIGHTS,
+    AUDIO_FEATURES,
+    FEATURE_NORMALIZERS,
+)
+from src.models.features import safe_float as _safe_float
 from src.models.genre import infer_genre_families
 
-
-AUDIO_FEATURES = [
-    "danceability",
-    "energy",
-    "loudness",
-    "speechiness",
-    "acousticness",
-    "instrumentalness",
-    "liveness",
-    "valence",
-    "tempo",
-]
-
-AUDIO_FEATURE_WEIGHTS = {
-    "danceability": 1.10,
-    "energy": 1.25,
-    "loudness": 0.60,
-    "speechiness": 0.70,
-    "acousticness": 1.00,
-    "instrumentalness": 0.70,
-    "liveness": 0.65,
-    "valence": 1.15,
-    "tempo": 1.05,
-}
-
-FEATURE_NORMALIZERS = {
-    "tempo": 120.0,
-    "loudness": 30.0,
-}
+# Flat weight applied to intent_bonus_score in every profile below. Kept as
+# a fallback for weights dicts (e.g. future UI sliders) that omit the key.
+INTENT_BONUS_WEIGHT = 0.03
 
 INTENT_WEIGHT_PROFILES = {
     "Balanced": {
@@ -50,6 +30,7 @@ INTENT_WEIGHT_PROFILES = {
         "genre_score": 0.20,
         "popularity_score": 0.05,
         "source_support_score": 0.07,
+        "intent_bonus_score": INTENT_BONUS_WEIGHT,
     },
     "Same vibe": {
         "latent_similarity": 0.50,
@@ -57,6 +38,7 @@ INTENT_WEIGHT_PROFILES = {
         "genre_score": 0.10,
         "popularity_score": 0.03,
         "source_support_score": 0.07,
+        "intent_bonus_score": INTENT_BONUS_WEIGHT,
     },
     "Same genre": {
         "latent_similarity": 0.28,
@@ -64,6 +46,7 @@ INTENT_WEIGHT_PROFILES = {
         "genre_score": 0.38,
         "popularity_score": 0.05,
         "source_support_score": 0.09,
+        "intent_bonus_score": INTENT_BONUS_WEIGHT,
     },
     "Discovery": {
         "latent_similarity": 0.34,
@@ -71,6 +54,7 @@ INTENT_WEIGHT_PROFILES = {
         "genre_score": 0.16,
         "popularity_score": 0.02,
         "source_support_score": 0.24,
+        "intent_bonus_score": INTENT_BONUS_WEIGHT,
     },
     "More popular": {
         "latent_similarity": 0.28,
@@ -78,6 +62,7 @@ INTENT_WEIGHT_PROFILES = {
         "genre_score": 0.16,
         "popularity_score": 0.28,
         "source_support_score": 0.10,
+        "intent_bonus_score": INTENT_BONUS_WEIGHT,
     },
     "More energetic": {
         "latent_similarity": 0.32,
@@ -85,6 +70,7 @@ INTENT_WEIGHT_PROFILES = {
         "genre_score": 0.14,
         "popularity_score": 0.04,
         "source_support_score": 0.20,
+        "intent_bonus_score": INTENT_BONUS_WEIGHT,
     },
 }
 
@@ -113,15 +99,6 @@ def build_knn_model(
     )
     knn.fit(latent_features)
     return knn
-
-
-def _safe_float(value, default: float = 0.0) -> float:
-    if pd.isna(value):
-        return default
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def get_weight_profile(intent: str) -> dict[str, float]:
@@ -276,6 +253,27 @@ def compute_genre_score(
     return 0.0
 
 
+def _cosine_similarity_to_seed(
+    seed_vector: np.ndarray,
+    candidate_vectors: np.ndarray,
+) -> np.ndarray:
+    """
+    Vectorized cosine similarity between one seed vector and many candidates.
+    """
+
+    seed_norm = np.linalg.norm(seed_vector)
+    candidate_norms = np.linalg.norm(candidate_vectors, axis=1)
+    denominator = seed_norm * candidate_norms
+    dot_products = candidate_vectors @ seed_vector
+    similarity = np.divide(
+        dot_products,
+        denominator,
+        out=np.zeros_like(dot_products, dtype=float),
+        where=denominator > 0,
+    )
+    return np.clip(similarity, -1.0, 1.0)
+
+
 def _build_latent_candidate_pool(
     dataframe: pd.DataFrame,
     latent_features: np.ndarray,
@@ -284,40 +282,50 @@ def _build_latent_candidate_pool(
     n_neighbors: int,
 ) -> pd.DataFrame:
     query = latent_features[track_index].reshape(1, -1)
-    distances, indices = knn.kneighbors(
+    _distances, indices = knn.kneighbors(
         query,
-        n_neighbors=n_neighbors,
+        n_neighbors=n_neighbors + 1,
     )
 
-    distances = distances.flatten()[1:]
-    indices = indices.flatten()[1:]
+    indices = indices.flatten()
+    # The seed itself may not be neighbor 0: with duplicate latent vectors
+    # (docs/FINDINGS.md finding 2/3) a distance tie can place a different
+    # track first, silently dropping a real neighbor if we always slice
+    # off position 0. Exclude the seed by identity instead.
+    indices = indices[indices != track_index][:n_neighbors]
 
     candidates = dataframe.iloc[indices].copy()
     candidates["source_latent"] = 1
-    candidates["latent_similarity"] = 1 - distances
-    candidates["similarity"] = candidates["latent_similarity"]
     return candidates
 
 
-def _build_genre_candidate_pool(
+def _genre_match_mask(
     dataframe: pd.DataFrame,
-    selected_song: pd.Series,
-    limit: int = 150,
-) -> pd.DataFrame:
-    selected_genre = str(
-        selected_song.get("track_genre", "")
-    )
+    selected_genre: str,
+) -> pd.Series:
+    """
+    Boolean mask of catalog rows that exactly match or share a genre family
+    with `selected_genre`. Computed once per request and shared between the
+    genre pool and the (now genre-scoped) popularity pool, so the two don't
+    each run an independent full-catalog genre-family scan.
+    """
+
     selected_families = infer_genre_families(selected_genre)
 
     def matches(row_genre: str) -> bool:
         if row_genre == selected_genre:
             return True
-        row_families = infer_genre_families(row_genre)
-        return bool(selected_families & row_families)
+        return bool(selected_families & infer_genre_families(row_genre))
 
-    genre_df = dataframe[
-        dataframe["track_genre"].apply(matches)
-    ].copy()
+    return dataframe["track_genre"].apply(matches)
+
+
+def _build_genre_candidate_pool(
+    dataframe: pd.DataFrame,
+    match_mask: pd.Series,
+    limit: int = 150,
+) -> pd.DataFrame:
+    genre_df = dataframe[match_mask].copy()
 
     if genre_df.empty:
         return genre_df
@@ -332,9 +340,18 @@ def _build_genre_candidate_pool(
 
 def _build_popularity_candidate_pool(
     dataframe: pd.DataFrame,
+    match_mask: pd.Series,
     limit: int = 120,
 ) -> pd.DataFrame:
-    popularity_df = dataframe.copy()
+    """
+    Popular tracks *within the seed's genre families*, not a fixed global
+    top-N. A global pool injects the same tracks into every request
+    regardless of intent, triple-counting popularity (pool membership +
+    source_support_score + popularity_score) and fighting "Discovery"'s
+    stated purpose (docs/FINDINGS.md finding 8).
+    """
+
+    popularity_df = dataframe[match_mask].copy() if match_mask.any() else dataframe.copy()
     popularity_df["source_popularity"] = 1
 
     if "popularity" in popularity_df.columns:
@@ -359,7 +376,12 @@ def _build_audio_candidate_pool(
         audio_df,
         intent=intent,
     )
-    audio_df = audio_df.drop(index=selected_index, errors="ignore")
+    # `selected_index` is a POSITION (dataframe.iloc[selected_index] is the
+    # seed), but the original code excluded it via label-based
+    # drop(index=...), correct only by coincidence when the index happens
+    # to be a plain RangeIndex. Exclude by position explicitly instead.
+    position_mask = np.arange(len(dataframe)) != selected_index
+    audio_df = audio_df.loc[position_mask]
     audio_df["source_audio"] = 1
     audio_df = audio_df.sort_values(
         "audio_similarity",
@@ -381,6 +403,10 @@ def build_candidate_pool(
     """
 
     selected_song = dataframe.iloc[track_index]
+    match_mask = _genre_match_mask(
+        dataframe,
+        str(selected_song.get("track_genre", "")),
+    )
 
     latent_df = _build_latent_candidate_pool(
         dataframe,
@@ -391,10 +417,11 @@ def build_candidate_pool(
     )
     genre_df = _build_genre_candidate_pool(
         dataframe,
-        selected_song,
+        match_mask,
     )
     popularity_df = _build_popularity_candidate_pool(
         dataframe,
+        match_mask,
     )
     audio_df = _build_audio_candidate_pool(
         dataframe,
@@ -436,34 +463,34 @@ def build_candidate_pool(
         / len(source_columns)
     )
 
+    # Aggregate every catalog column dynamically (not a hardcoded list) so
+    # metadata the ranker doesn't score on -- album_name, duration_ms, and
+    # anything added later -- survives the groupby instead of being
+    # silently dropped (docs/FINDINGS.md finding 1).
+    metadata_columns = [
+        column for column in dataframe.columns if column not in source_columns
+    ]
+    agg_spec: dict[str, str] = {column: "first" for column in metadata_columns}
+    agg_spec["source_support_score"] = "max"
+    for column in source_columns:
+        agg_spec[column] = "max"
+
     grouped = (
         candidate_pool.groupby("row_index", sort=False)
-        .agg(
-            {
-                "track_name": "first",
-                "artists": "first",
-                "track_genre": "first",
-                "popularity": "first",
-                "track_id": "first",
-                "danceability": "first",
-                "energy": "first",
-                "loudness": "first",
-                "speechiness": "first",
-                "acousticness": "first",
-                "instrumentalness": "first",
-                "liveness": "first",
-                "valence": "first",
-                "tempo": "first",
-                "latent_similarity": "max",
-                "audio_similarity": "max",
-                "source_support_score": "max",
-                "source_latent": "max",
-                "source_genre": "max",
-                "source_popularity": "max",
-                "source_audio": "max",
-            }
-        )
+        .agg(agg_spec)
         .reset_index(drop=False)
+    )
+
+    # Dense latent similarity for the WHOLE pool: every candidate has a
+    # well-defined cosine similarity to the seed -- it is not "missing"
+    # for genre-only/popularity-only candidates, it was just never
+    # computed for them by the latent-KNN pool. This is what fixes the
+    # NaN ranking_score defect (docs/FINDINGS.md finding 1).
+    seed_vector = latent_features[track_index]
+    candidate_vectors = latent_features[grouped["row_index"].to_numpy()]
+    grouped["latent_similarity"] = _cosine_similarity_to_seed(
+        seed_vector,
+        candidate_vectors,
     )
 
     return selected_song, grouped
@@ -473,24 +500,35 @@ def rank_candidates(
     selected_song: pd.Series,
     candidates: pd.DataFrame,
     intent: str = "Balanced",
+    weights: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """
     Rank recommendation candidates using a tuned hybrid score.
     """
 
     ranked = candidates.copy()
-    weights = get_weight_profile(intent)
+    weights = weights if weights is not None else get_weight_profile(intent)
 
+    # latent_similarity is supplied densely by build_candidate_pool for
+    # every row; this guard only protects direct/test callers that pass a
+    # candidates frame without it.
     if "latent_similarity" not in ranked.columns:
         ranked["latent_similarity"] = 0.0
-    if "audio_similarity" not in ranked.columns:
-        ranked["audio_similarity"] = compute_audio_similarity_scores(
-            selected_song,
-            ranked,
-            intent=intent,
-        )
+    ranked["latent_similarity"] = ranked["latent_similarity"].fillna(0.0)
 
-    ranked["similarity"] = ranked["latent_similarity"].fillna(0.0)
+    # Recomputed unconditionally for the WHOLE pool -- audio_similarity is
+    # a deterministic function of audio features, which every candidate
+    # has via the "first" aggregation in build_candidate_pool. There is
+    # nothing to guard: the old `if "audio_similarity" not in columns`
+    # check never fired because the column was always present (full of
+    # NaN for non-audio-pool rows), which is exactly what caused every
+    # non-audio-pool candidate to sort to the bottom
+    # (docs/FINDINGS.md finding 1).
+    ranked["audio_similarity"] = compute_audio_similarity_scores(
+        selected_song,
+        ranked,
+        intent=intent,
+    )
 
     ranked["genre_score"] = ranked.apply(
         lambda row: compute_genre_score(
@@ -508,7 +546,10 @@ def rank_candidates(
         ranked["popularity_score"] = 0.0
 
     if intent == "More energetic":
-        ranked["intent_bonus_score"] = ranked["energy"].fillna(0.0)
+        if "energy" in ranked.columns:
+            ranked["intent_bonus_score"] = ranked["energy"].fillna(0.0)
+        else:
+            ranked["intent_bonus_score"] = 0.0
     elif intent == "Discovery":
         ranked["intent_bonus_score"] = 1.0 - ranked[
             "popularity_score"
@@ -522,12 +563,15 @@ def rank_candidates(
         + weights["genre_score"] * ranked["genre_score"]
         + weights["popularity_score"] * ranked["popularity_score"]
         + weights["source_support_score"] * ranked["source_support_score"]
+        + weights.get("intent_bonus_score", INTENT_BONUS_WEIGHT)
+        * ranked["intent_bonus_score"]
     )
 
-    ranked["ranking_score"] = (
-        ranked["ranking_score"]
-        + 0.03 * ranked["intent_bonus_score"]
-    )
+    if ranked["ranking_score"].isna().any():
+        raise ValueError(
+            "rank_candidates produced NaN ranking_score(s) -- "
+            "a required score column is missing or malformed."
+        )
 
     ranked = ranked.sort_values(
         ["ranking_score", "source_support_score"],
@@ -544,10 +588,13 @@ def diversify_artists(
     Prevent one artist from dominating recommendations.
     """
 
-    final = []
+    if recommendations.empty:
+        return recommendations
+
+    keep_positions: list[int] = []
     artist_counter: dict[str, int] = {}
 
-    for _, row in recommendations.iterrows():
+    for position, (_, row) in enumerate(recommendations.iterrows()):
         artist = str(row.get("artists", ""))
         count = artist_counter.get(artist, 0)
 
@@ -555,9 +602,9 @@ def diversify_artists(
             continue
 
         artist_counter[artist] = count + 1
-        final.append(row)
+        keep_positions.append(position)
 
-    return pd.DataFrame(final)
+    return recommendations.iloc[keep_positions]
 
 
 def recommend_tracks(

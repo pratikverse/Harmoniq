@@ -8,45 +8,17 @@ from typing import Any
 
 import pandas as pd
 
+from src.models.features import (
+    EXPLAINABLE_FEATURES,
+    FEATURE_LABELS,
+    FEATURE_NORMALIZERS,
+)
+from src.models.features import safe_float as _safe_float
 from src.models.genre import infer_genre_families
-
-
-EXPLAINABLE_FEATURES = [
-    "danceability",
-    "energy",
-    "tempo",
-    "valence",
-    "acousticness",
-    "instrumentalness",
-    "speechiness",
-    "liveness",
-    "loudness",
-]
-
-FEATURE_LABELS = {
-    "danceability": "Danceability",
-    "energy": "Energy",
-    "tempo": "Tempo",
-    "valence": "Mood",
-    "acousticness": "Acousticness",
-    "instrumentalness": "Instrumental feel",
-    "speechiness": "Vocal style",
-    "liveness": "Live feel",
-    "loudness": "Loudness",
-}
 
 
 def _is_available(song: pd.Series, feature: str) -> bool:
     return feature in song and pd.notna(song[feature])
-
-
-def _safe_float(value: Any, default: float = 0.0) -> float:
-    try:
-        if pd.isna(value):
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def get_feature_matches(
@@ -56,6 +28,12 @@ def get_feature_matches(
 ) -> list[dict[str, float | str]]:
     """
     Return feature-level closeness signals used in the explanation UI.
+
+    The threshold is compared against the NORMALIZED difference (via
+    FEATURE_NORMALIZERS), not the raw one -- comparing raw deltas made
+    tempo (BPM) and loudness (dB) structurally unable to ever register as
+    "close" (docs/FINDINGS.md finding 7). The reported "difference" stays
+    in each feature's natural units for readability.
     """
 
     feature_matches: list[dict[str, float | str]] = []
@@ -69,20 +47,22 @@ def get_feature_matches(
 
         selected_value = _safe_float(selected_song[feature])
         recommended_value = _safe_float(recommended_song[feature])
-        difference = abs(
+        raw_difference = abs(
             selected_value - recommended_value
         )
+        normalizer = FEATURE_NORMALIZERS.get(feature, 1.0)
+        normalized_difference = raw_difference / normalizer
 
-        if difference <= threshold:
+        if normalized_difference <= threshold:
             closeness = max(
                 0.0,
-                1.0 - (difference / threshold),
+                1.0 - (normalized_difference / threshold),
             )
             feature_matches.append(
                 {
                     "feature": feature,
                     "label": FEATURE_LABELS[feature],
-                    "difference": difference,
+                    "difference": raw_difference,
                     "closeness": closeness,
                     "selected_value": selected_value,
                     "recommended_value": recommended_value,
@@ -106,9 +86,6 @@ def explain_recommendation(
     Build a richer explanation object for one recommendation.
     """
 
-    similarity = _safe_float(
-        recommended_song.get("similarity")
-    )
     latent_similarity = _safe_float(
         recommended_song.get("latent_similarity")
     )
@@ -196,7 +173,6 @@ def explain_recommendation(
         explanation_summary += "."
 
     return {
-        "similarity_percent": similarity * 100,
         "latent_similarity_percent": latent_similarity * 100,
         "audio_similarity_percent": audio_similarity * 100,
         "genre_score_percent": genre_score * 100,
