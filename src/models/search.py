@@ -4,8 +4,8 @@ Search utilities for TuneMatch.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Iterable
 
 import pandas as pd
 from rapidfuzz import fuzz, process, utils
@@ -14,7 +14,11 @@ from rapidfuzz import fuzz, process, utils
 @dataclass(frozen=True)
 class SearchChoice:
     """
-    One searchable track entry.
+    One searchable track entry, with RapidFuzz-processed text precomputed
+    at build time so intelligent_search never re-normalizes 68k+ strings
+    per keystroke (docs/FINDINGS.md finding 9 -- this used to cost ~47s
+    per query on the real catalog, dominated by a Python-callback
+    `processor=lambda` that defeated RapidFuzz's C-level batch matching).
     """
 
     index: int
@@ -22,22 +26,19 @@ class SearchChoice:
     track_name: str
     artists: str
     search_text: str
+    processed_text: str
+    processed_label: str
 
 
 def _normalize_text(value: object) -> str:
-    """
-    Convert values to safe searchable text.
-    """
-
     if value is None or pd.isna(value):
         return ""
-
     return str(value).strip()
 
 
 def build_search_index(dataframe: pd.DataFrame) -> list[SearchChoice]:
     """
-    Build normalized search records for the catalog.
+    Build normalized, pre-processed search records for the catalog.
     """
 
     choices: list[SearchChoice] = []
@@ -49,8 +50,6 @@ def build_search_index(dataframe: pd.DataFrame) -> list[SearchChoice]:
 
         label = f"{track_name} - {artists}" if artists else track_name
 
-        # Include multiple fields so artist search and typo-tolerant matching
-        # both benefit from a broader context string.
         search_text = " | ".join(
             part
             for part in (
@@ -69,87 +68,16 @@ def build_search_index(dataframe: pd.DataFrame) -> list[SearchChoice]:
                 track_name=track_name,
                 artists=artists,
                 search_text=search_text,
+                processed_text=utils.default_process(search_text),
+                processed_label=utils.default_process(label),
             )
         )
 
     return choices
 
 
-def build_search_choices(dataframe: pd.DataFrame) -> list[str]:
-    """
-    Backward-compatible helper returning display labels.
-    """
-
-    return [
-        choice.label
-        for choice in build_search_index(dataframe)
-    ]
-
-
-def _coerce_search_choice(
-    choice: SearchChoice | str,
-    position: int,
-) -> SearchChoice:
-    """
-    Accept either the new dataclass format or legacy cached string entries.
-    """
-
-    if isinstance(choice, SearchChoice):
-        return choice
-
-    label = _normalize_text(choice)
-    track_name, separator, artists = label.partition(" - ")
-    if not separator:
-        track_name = label
-        artists = ""
-
-    search_text = " | ".join(
-        part
-        for part in (
-            track_name,
-            artists,
-            label,
-        )
-        if part
-    )
-
-    return SearchChoice(
-        index=position,
-        label=label,
-        track_name=track_name,
-        artists=artists,
-        search_text=search_text,
-    )
-
-
-def _extract_search_text(
-    value: SearchChoice | str,
-) -> str:
-    """
-    Provide a normalized string for RapidFuzz processors.
-    """
-
-    if isinstance(value, SearchChoice):
-        return value.search_text
-
-    return _normalize_text(value)
-
-
-def _extract_search_label(
-    value: SearchChoice | str,
-) -> str:
-    """
-    Provide a display label for RapidFuzz processors.
-    """
-
-    if isinstance(value, SearchChoice):
-        return value.label
-
-    return _normalize_text(value)
-
-
 def _dedupe_matches(
-    matches: Iterable[tuple[SearchChoice, float, int]],
+    matches: Sequence[tuple[SearchChoice, float]],
 ) -> list[dict]:
     """
     Remove duplicate matches by track index while preserving rank order.
@@ -158,7 +86,7 @@ def _dedupe_matches(
     deduped: list[dict] = []
     seen: set[int] = set()
 
-    for choice, score, _ in matches:
+    for choice, score in matches:
         if choice.index in seen:
             continue
 
@@ -178,7 +106,7 @@ def _dedupe_matches(
 
 def intelligent_search(
     query: str,
-    search_index: list[SearchChoice | str],
+    search_index: list[SearchChoice],
     limit: int = 10,
     score_cutoff: int = 45,
 ) -> list[dict]:
@@ -188,45 +116,35 @@ def intelligent_search(
 
     cleaned_query = query.strip()
 
-    if not cleaned_query:
+    if not cleaned_query or not search_index:
         return []
 
-    normalized_search_index = [
-        _coerce_search_choice(choice, position)
-        for position, choice in enumerate(search_index)
+    lowered_query = cleaned_query.casefold()
+    direct_substring_matches = [
+        (choice, 100.0)
+        for choice in search_index
+        if lowered_query in choice.search_text.casefold()
     ]
 
-    direct_substring_matches: list[tuple[SearchChoice, float, int]] = []
-    lowered_query = cleaned_query.casefold()
+    processed_query = utils.default_process(cleaned_query)
+    processed_texts = [choice.processed_text for choice in search_index]
+    processed_labels = [choice.processed_label for choice in search_index]
 
-    for position, choice in enumerate(normalized_search_index):
-        searchable = choice.search_text.casefold()
-        if lowered_query in searchable:
-            direct_substring_matches.append(
-                (
-                    choice,
-                    100.0,
-                    position,
-                )
-            )
-
-    fuzzy_matches = process.extract(
-        cleaned_query,
-        normalized_search_index,
-        processor=lambda value: utils.default_process(
-            _extract_search_text(value)
-        ),
+    # processor=None: candidates are already-processed plain strings, so
+    # RapidFuzz's C batch matcher runs directly with no Python callback
+    # per candidate.
+    fuzzy_hits = process.extract(
+        processed_query,
+        processed_texts,
+        processor=None,
         scorer=fuzz.WRatio,
         limit=limit * 3,
         score_cutoff=score_cutoff,
     )
-
-    startswith_matches = process.extract(
-        cleaned_query,
-        normalized_search_index,
-        processor=lambda value: utils.default_process(
-            _extract_search_label(value)
-        ),
+    startswith_hits = process.extract(
+        processed_query,
+        processed_labels,
+        processor=None,
         scorer=fuzz.partial_ratio,
         limit=limit * 3,
         score_cutoff=score_cutoff,
@@ -234,29 +152,8 @@ def intelligent_search(
 
     combined_matches = (
         direct_substring_matches
-        + fuzzy_matches
-        + startswith_matches
+        + [(search_index[i], score) for _, score, i in fuzzy_hits]
+        + [(search_index[i], score) for _, score, i in startswith_hits]
     )
 
-    return _dedupe_matches(
-        combined_matches
-    )[:limit]
-
-
-def fuzzy_search(
-    query: str,
-    choices: list[str],
-    limit: int = 10,
-    score_cutoff: int = 50,
-):
-    """
-    Legacy helper retained for compatibility.
-    """
-
-    return process.extract(
-        query,
-        choices,
-        scorer=fuzz.WRatio,
-        limit=limit,
-        score_cutoff=score_cutoff,
-    )
+    return _dedupe_matches(combined_matches)[:limit]
