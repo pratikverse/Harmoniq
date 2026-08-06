@@ -21,13 +21,20 @@ export default function CreateSpotifyPlaylist({ tracks }: { tracks: TrackSummary
 
   if (!connected) {
     return (
-      <button
-        onClick={connect}
-        className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-      >
-        <Music className="size-4" />
-        Connect Spotify
-      </button>
+      <div>
+        <button
+          onClick={connect}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <Music className="size-4" />
+          Connect Spotify
+        </button>
+        <p className="mt-2 max-w-md text-xs text-muted-foreground">
+          This app is in Spotify's development mode, so only accounts the developer has
+          explicitly allowlisted can connect. If you get a Spotify error after logging in, that's
+          why -- use the CSV, M3U8, or Spotify URI export below instead, which work for everyone.
+        </p>
+      </div>
     );
   }
 
