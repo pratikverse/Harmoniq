@@ -1,5 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Header from "./components/Header";
+import ApiStatusBanner from "./components/ApiStatusBanner";
+import { ApiStatusProvider } from "./lib/apiStatus";
 import { PlaylistProvider } from "./lib/playlist";
 import { SpotifyAuthProvider } from "./lib/SpotifyAuthContext";
 import Overview from "./pages/Overview";
@@ -16,27 +18,30 @@ export default function App() {
     <PlaylistProvider>
       <BrowserRouter>
         <SpotifyAuthProvider>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1">
-              <Routes>
-                <Route path="/" element={<Overview />} />
-                <Route path="/recommendations" element={<Recommendations />} />
-                <Route path="/mood" element={<Mood />} />
-                <Route path="/genre" element={<Genre />} />
-                <Route path="/playlist" element={<Playlist />} />
-                <Route path="/visualize" element={<Visualize />} />
-                <Route path="/how-it-works" element={<HowItWorks />} />
-                <Route path="/callback" element={<Callback />} />
-              </Routes>
-            </main>
-            <footer className="border-t border-border/70 px-5 py-6">
-              <p className="mx-auto max-w-7xl text-xs text-muted-foreground">
-                Harmoniq | Hybrid music recommendation, mood discovery, genre exploration, and
-                explainable AI in one polished web experience.
-              </p>
-            </footer>
-          </div>
+          <ApiStatusProvider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <ApiStatusBanner />
+              <main className="flex-1">
+                <Routes>
+                  <Route path="/" element={<Overview />} />
+                  <Route path="/recommendations" element={<Recommendations />} />
+                  <Route path="/mood" element={<Mood />} />
+                  <Route path="/genre" element={<Genre />} />
+                  <Route path="/playlist" element={<Playlist />} />
+                  <Route path="/visualize" element={<Visualize />} />
+                  <Route path="/how-it-works" element={<HowItWorks />} />
+                  <Route path="/callback" element={<Callback />} />
+                </Routes>
+              </main>
+              <footer className="border-t border-border/70 px-5 py-6">
+                <p className="mx-auto max-w-7xl text-xs text-muted-foreground">
+                  Harmoniq | Hybrid music recommendation, mood discovery, genre exploration, and
+                  explainable AI in one polished web experience.
+                </p>
+              </footer>
+            </div>
+          </ApiStatusProvider>
         </SpotifyAuthProvider>
       </BrowserRouter>
     </PlaylistProvider>

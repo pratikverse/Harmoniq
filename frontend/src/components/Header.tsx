@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { AudioWaveform } from "lucide-react";
-import { checkHealth } from "../api";
+import { useApiStatus } from "../lib/apiStatus";
 
 const NAV_ITEMS = [
   { to: "/", label: "Overview", end: true },
@@ -13,28 +12,25 @@ const NAV_ITEMS = [
   { to: "/how-it-works", label: "How it works" },
 ];
 
+const STATUS_LABEL = {
+  connecting: "connecting…",
+  waking: "waking up…",
+  ready: "live api",
+  offline: "offline",
+} as const;
+
+const STATUS_DOT = {
+  connecting: "bg-muted-foreground",
+  waking: "bg-chart-4 animate-pulse",
+  ready: "bg-chart-3",
+  offline: "bg-destructive",
+} as const;
+
 export default function Header() {
-  const [online, setOnline] = useState<boolean | null>(null);
+  const { status } = useApiStatus();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    function poll() {
-      checkHealth()
-        .then((ok) => !cancelled && setOnline(ok))
-        .catch(() => !cancelled && setOnline(false));
-    }
-
-    poll();
-    const interval = setInterval(poll, 15000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
-
-  const statusLabel = online === null ? "connecting…" : online ? "live api" : "offline";
-  const statusDot = online === null ? "bg-muted-foreground" : online ? "bg-chart-3" : "bg-destructive";
+  const statusLabel = STATUS_LABEL[status];
+  const statusDot = STATUS_DOT[status];
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">

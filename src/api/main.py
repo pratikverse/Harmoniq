@@ -9,9 +9,12 @@ the same recommendation engine the Streamlit app used.
 
 from __future__ import annotations
 
+import logging
 import random
 import sys
-from functools import lru_cache
+import threading
+from contextlib import asynccontextmanager
+from functools import wraps
 from pathlib import Path
 
 import numpy as np
@@ -43,7 +46,76 @@ from src.models.recommender import (
 from src.models.search import build_search_index, intelligent_search
 from src.models.visualization import calculate_correlation, calculate_pca
 
-app = FastAPI(title="Harmoniq API")
+logger = logging.getLogger("harmoniq.api")
+
+
+def once(build):
+    """
+    Single-evaluation cache for a zero-argument loader.
+
+    functools.lru_cache does not hold its lock across the wrapped call, so two
+    concurrent cold-start requests can both miss and both run the loader. Here
+    that would mean loading a second copy of the ~89k-row catalog into a 512MB
+    free-tier container. Double-checked locking makes the load happen once.
+    """
+    lock = threading.Lock()
+    cache: dict = {}
+
+    @wraps(build)
+    def wrapper():
+        if "value" not in cache:
+            with lock:
+                if "value" not in cache:
+                    cache["value"] = build()
+        return cache["value"]
+
+    wrapper.cache_clear = cache.clear
+    return wrapper
+
+
+@once
+def get_resources() -> dict:
+    return load_artifacts()
+
+
+@once
+def get_search_index():
+    return build_search_index(get_resources()["dataframe"])
+
+
+@once
+def get_mood_catalog():
+    return assign_moods(get_resources()["dataframe"])
+
+
+_ready = False
+
+
+def _warm_artifacts() -> None:
+    """
+    Load the artifacts once at boot instead of making the first real request
+    pay for it. Runs off the event loop so uvicorn binds its port immediately
+    (Render kills a service that does not bind quickly) and /api/health can
+    answer while this is still running.
+    """
+    global _ready
+    try:
+        get_resources()
+        get_search_index()
+        get_mood_catalog()
+        _ready = True
+        logger.info("Artifacts warmed; API ready.")
+    except Exception:
+        logger.exception("Artifact warm-up failed; endpoints will load lazily.")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    threading.Thread(target=_warm_artifacts, name="warm-artifacts", daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Harmoniq API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,22 +129,7 @@ app.add_middleware(
 )
 
 
-@lru_cache(maxsize=1)
-def get_resources() -> dict:
-    return load_artifacts()
-
-
-@lru_cache(maxsize=1)
-def get_search_index():
-    return build_search_index(get_resources()["dataframe"])
-
-
-@lru_cache(maxsize=1)
-def get_mood_catalog():
-    return assign_moods(get_resources()["dataframe"])
-
-
-@lru_cache(maxsize=1)
+@once
 def get_pca_projection():
     resources = get_resources()
     df = resources["dataframe"]
@@ -105,7 +162,11 @@ class RecommendRequest(BaseModel):
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok"}
+    """
+    Answers as soon as uvicorn is up. `ready` is False while the artifacts are
+    still loading, so the frontend can say "waking up" instead of "offline".
+    """
+    return {"status": "ok", "ready": _ready}
 
 
 @app.get("/api/stats")

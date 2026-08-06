@@ -86,12 +86,21 @@ async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function checkHealth(): Promise<boolean> {
+/** "ready" = serving requests, "warming" = booted but still loading artifacts, "down" = no answer. */
+export type HealthStatus = "ready" | "warming" | "down";
+
+export async function checkHealth(timeoutMs = 8000): Promise<HealthStatus> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`);
-    return response.ok;
+    const response = await fetch(`${API_BASE_URL}/api/health`, {
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
+    });
+    if (!response.ok) return "down";
+    // A backend predating the `ready` flag omits it -- treat that as ready.
+    const body = (await response.json().catch(() => null)) as { ready?: boolean } | null;
+    return body?.ready === false ? "warming" : "ready";
   } catch {
-    return false;
+    return "down";
   }
 }
 
