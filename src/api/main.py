@@ -47,9 +47,11 @@ app = FastAPI(title="Harmoniq API")
 
 app.add_middleware(
     CORSMiddleware,
-    # Tightened via ALLOWED_ORIGINS once the Vercel domain is known; wide
-    # open for now since every response here is public catalog data.
-    allow_origins=["*"],
+    allow_origins=[
+        "https://harmoniq-ruddy.vercel.app",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
