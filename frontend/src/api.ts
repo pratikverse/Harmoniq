@@ -1,5 +1,21 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+// Vite inlines VITE_* at build time, so a missing VITE_API_BASE_URL bakes the
+// localhost fallback into the deployed bundle -- every visitor then calls a
+// server on their own machine and the app looks permanently offline. Nothing
+// throws, so this is worth stating loudly rather than leaving to inspection.
+if (typeof window !== "undefined") {
+  const servedLocally = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const pointsAtLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(API_BASE_URL);
+  if (pointsAtLocalhost && !servedLocally) {
+    console.error(
+      `[Harmoniq] VITE_API_BASE_URL was not set at build time, so the API base URL is "${API_BASE_URL}". ` +
+        "This build cannot reach the backend from any machine but your own. " +
+        "Set VITE_API_BASE_URL (frontend/.env.production or the Vercel Production environment) and rebuild.",
+    );
+  }
+}
+
 export interface TrackSummary {
   index: number;
   track_id: string | null;
