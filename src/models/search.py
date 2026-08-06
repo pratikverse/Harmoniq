@@ -1,5 +1,5 @@
 """
-Search utilities for TuneMatch.
+Search utilities for Harmoniq.
 """
 
 from __future__ import annotations

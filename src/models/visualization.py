@@ -1,5 +1,5 @@
 """
-Visualization utilities for TuneMatch.
+Visualization utilities for Harmoniq.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Recommendation engine for TuneMatch.
+Recommendation engine for Harmoniq.
 """
 
 from __future__ import annotations

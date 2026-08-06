@@ -1,5 +1,5 @@
 """
-Global configuration for TuneMatch.
+Global configuration for Harmoniq.
 """
 
 from pathlib import Path

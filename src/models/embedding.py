@@ -1,5 +1,5 @@
 """
-The retrieval embedding TuneMatch's KNN operates over.
+The retrieval embedding Harmoniq's KNN operates over.
 
 Replaces the 9->64->32->8 autoencoder (docs/IMPROVEMENT_PLAN.md Phase 4,
 docs/FINDINGS.md finding 12): with only 9 real audio features, the

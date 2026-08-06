@@ -1,4 +1,4 @@
-# TuneMatch
+# Harmoniq
 
 A hybrid music recommendation system over a ~89,500-track Spotify catalog, deployed as an
 interactive Streamlit app: search or browse for a track, get ranked recommendations blending
