@@ -1,35 +1,129 @@
 @import url("https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap");
+@import "tailwindcss";
 
-* {
-  box-sizing: border-box;
+/*
+ * Design system — "Editorial Ink" palette, matching the reference design
+ * (drape-orcin.vercel.app). Near-black ground, warm cream foreground, no
+ * accent hue beyond that pair — primary actions invert (cream fill, black
+ * text) rather than introducing a new color.
+ */
+
+@theme inline {
+  --font-display: "General Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "General Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-grid-line: var(--grid-line);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
+:root {
+  color-scheme: dark;
+  --radius: 0.375rem;
+  --background: oklch(0.1 0.008 85);
+  --foreground: oklch(0.94 0.03 92);
+  --card: oklch(0.14 0.01 85);
+  --card-foreground: oklch(0.94 0.03 92);
+  --popover: oklch(0.13 0.01 85);
+  --popover-foreground: oklch(0.94 0.03 92);
+  --primary: oklch(0.94 0.03 92);
+  --primary-foreground: oklch(0.1 0.008 85);
+  --secondary: oklch(0.19 0.012 85);
+  --secondary-foreground: oklch(0.92 0.025 92);
+  --muted: oklch(0.16 0.01 85);
+  --muted-foreground: oklch(0.64 0.02 88);
+  --accent: oklch(0.2 0.014 85);
+  --accent-foreground: oklch(0.94 0.03 92);
+  --destructive: oklch(0.63 0.23 22);
+  --destructive-foreground: oklch(0.98 0.01 92);
+  --border: oklch(0.24 0.014 85);
+  --input: oklch(0.22 0.014 85);
+  --ring: oklch(0.85 0.03 90);
+  --surface: oklch(0.13 0.01 85);
+  --grid-line: oklch(0.19 0.012 85);
+  --chart-1: oklch(0.85 0.03 90);
+  --chart-2: oklch(0.68 0.17 195);
+  --chart-3: oklch(0.72 0.16 150);
+  --chart-4: oklch(0.78 0.16 85);
+  --chart-5: oklch(0.68 0.2 340);
 }
 
-body {
-  font-family: "General Sans", sans-serif;
-  background-color: #0a0a08;
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgba(243, 238, 221, 0.025) 0px,
-    rgba(243, 238, 221, 0.025) 1px,
-    transparent 1px,
-    transparent 32px
-  );
-  color: #f3eedd;
-  min-height: 100vh;
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
 }
 
-h1,
-h2,
-h3,
-h4 {
-  font-family: "General Sans", sans-serif;
-  font-weight: 600;
+@utility grid-backdrop {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: 0.25;
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@keyframes cs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility rise {
+  animation: cs-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 #root {

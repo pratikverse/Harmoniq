@@ -9,10 +9,11 @@ the same recommendation engine the Streamlit app used.
 
 from __future__ import annotations
 
+import sys
 from functools import lru_cache
 from pathlib import Path
-import sys
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -24,6 +25,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.api.serializers import to_native, track_summary
 from src.models.artifacts import load_artifacts
 from src.models.explain import explain_recommendation
+from src.models.features import AUDIO_FEATURES
+from src.models.genre import (
+    GENRE_EXPLORER_OPTIONS,
+    generate_genre_playlist,
+    recommend_by_genre,
+)
+from src.models.mood import MOOD_ORDER, assign_moods, explain_mood_fit, recommend_by_mood
 from src.models.recommender import (
     INTENT_WEIGHT_PROFILES,
     get_track_details,
@@ -32,6 +40,7 @@ from src.models.recommender import (
     recommend_tracks,
 )
 from src.models.search import build_search_index, intelligent_search
+from src.models.visualization import calculate_correlation, calculate_pca
 
 app = FastAPI(title="Harmoniq API")
 
@@ -53,6 +62,36 @@ def get_resources() -> dict:
 @lru_cache(maxsize=1)
 def get_search_index():
     return build_search_index(get_resources()["dataframe"])
+
+
+@lru_cache(maxsize=1)
+def get_mood_catalog():
+    return assign_moods(get_resources()["dataframe"])
+
+
+@lru_cache(maxsize=1)
+def get_pca_projection():
+    resources = get_resources()
+    df = resources["dataframe"]
+    projection = calculate_pca(resources["latent_features"])
+
+    sample_per_genre = 200
+    max_points = 8000
+    rng = np.random.default_rng(42)
+
+    indices = np.arange(len(df))
+    if len(df) > max_points:
+        sampled = []
+        for _, group in df.groupby("track_genre").indices.items():
+            group_indices = np.asarray(group)
+            if len(group_indices) > sample_per_genre:
+                group_indices = rng.choice(group_indices, sample_per_genre, replace=False)
+            sampled.append(group_indices)
+        indices = np.concatenate(sampled)
+        if len(indices) > max_points:
+            indices = rng.choice(indices, max_points, replace=False)
+
+    return projection, indices
 
 
 class RecommendRequest(BaseModel):
@@ -145,4 +184,89 @@ def recommend(request: RecommendRequest) -> dict:
     return {
         "selected_track": track_summary(selected_track, request.track_index),
         "recommendations": recommendation_payloads,
+    }
+
+
+@app.get("/api/moods")
+def moods() -> dict:
+    return {"moods": MOOD_ORDER}
+
+
+@app.get("/api/mood/{mood}")
+def mood_recommendations(mood: str, limit: int = 12) -> dict:
+    if mood not in MOOD_ORDER:
+        raise HTTPException(status_code=404, detail="Unknown mood.")
+
+    catalog = get_mood_catalog()
+    results = recommend_by_mood(catalog, mood, n_recommendations=limit)
+
+    payloads = []
+    for offset, row in results.iterrows():
+        payloads.append(
+            {
+                **track_summary(row, int(offset)),
+                "mood": to_native(row["mood"]),
+                "mood_score": to_native(row[f"{mood.lower()}_score"]),
+                "mood_match_score": to_native(row["mood_match_score"]),
+                "reasons": explain_mood_fit(row, mood),
+            }
+        )
+
+    return {"mood": mood, "tracks": payloads}
+
+
+@app.get("/api/genres")
+def genres() -> dict:
+    return {"genres": GENRE_EXPLORER_OPTIONS}
+
+
+@app.get("/api/genre/{genre}")
+def genre_explorer(genre: str, limit: int = 12, playlist_size: int = 20) -> dict:
+    if genre not in GENRE_EXPLORER_OPTIONS:
+        raise HTTPException(status_code=404, detail="Unknown genre.")
+
+    df = get_resources()["dataframe"]
+
+    recommendations = recommend_by_genre(df, genre, n_recommendations=limit)
+    playlist = generate_genre_playlist(df, genre, playlist_size=playlist_size)
+
+    return {
+        "genre": genre,
+        "recommendations": [
+            track_summary(row, int(offset)) for offset, row in recommendations.iterrows()
+        ],
+        "playlist": [
+            track_summary(row, int(offset)) for offset, row in playlist.iterrows()
+        ],
+    }
+
+
+@app.get("/api/visualization/pca")
+def visualization_pca() -> dict:
+    df = get_resources()["dataframe"]
+    projection, indices = get_pca_projection()
+
+    points = [
+        {
+            "pc1": float(projection[i, 0]),
+            "pc2": float(projection[i, 1]),
+            "pc3": float(projection[i, 2]),
+            "genre": to_native(df.iloc[i]["track_genre"]),
+            "track_name": to_native(df.iloc[i]["track_name"]),
+            "artists": to_native(df.iloc[i]["artists"]),
+        }
+        for i in indices
+    ]
+
+    return {"points": points}
+
+
+@app.get("/api/visualization/heatmap")
+def visualization_heatmap() -> dict:
+    df = get_resources()["dataframe"]
+    correlation = calculate_correlation(df, AUDIO_FEATURES)
+
+    return {
+        "features": list(correlation.columns),
+        "matrix": to_native(correlation.values.tolist()),
     }

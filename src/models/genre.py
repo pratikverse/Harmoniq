@@ -216,4 +216,4 @@ def generate_genre_playlist(
             if len(selected_rows) >= playlist_size:
                 break
 
-    return pd.DataFrame(selected_rows).reset_index(drop=True)
+    return pd.DataFrame(selected_rows)
