@@ -1,0 +1,37 @@
+@import url("https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap");
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "General Sans", sans-serif;
+  background-color: #0a0a08;
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(243, 238, 221, 0.025) 0px,
+    rgba(243, 238, 221, 0.025) 1px,
+    transparent 1px,
+    transparent 32px
+  );
+  color: #f3eedd;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "General Sans", sans-serif;
+  font-weight: 600;
+}
+
+#root {
+  min-height: 100vh;
+}
