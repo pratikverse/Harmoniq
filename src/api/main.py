@@ -9,6 +9,7 @@ the same recommendation engine the Streamlit app used.
 
 from __future__ import annotations
 
+import random
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -221,14 +222,24 @@ def genres() -> dict:
 
 
 @app.get("/api/genre/{genre}")
-def genre_explorer(genre: str, limit: int = 12, playlist_size: int = 20) -> dict:
+def genre_explorer(
+    genre: str,
+    limit: int = 12,
+    playlist_size: int = 20,
+    shuffle: bool = False,
+) -> dict:
     if genre not in GENRE_EXPLORER_OPTIONS:
         raise HTTPException(status_code=404, detail="Unknown genre.")
 
     df = get_resources()["dataframe"]
+    random_state = random.randint(0, 2**31 - 1) if shuffle else None
 
-    recommendations = recommend_by_genre(df, genre, n_recommendations=limit)
-    playlist = generate_genre_playlist(df, genre, playlist_size=playlist_size)
+    recommendations = recommend_by_genre(
+        df, genre, n_recommendations=limit, shuffle=shuffle, random_state=random_state
+    )
+    playlist = generate_genre_playlist(
+        df, genre, playlist_size=playlist_size, shuffle=shuffle, random_state=random_state
+    )
 
     return {
         "genre": genre,

@@ -144,9 +144,14 @@ export function getGenres() {
   return getJSON<{ genres: string[] }>("/api/genres");
 }
 
-export function getGenreExplorer(genre: string, limit = 12, playlistSize = 20) {
+export function getGenreExplorer(
+  genre: string,
+  limit = 12,
+  playlistSize = 20,
+  shuffle = false,
+) {
   return getJSON<{ genre: string; recommendations: TrackSummary[]; playlist: TrackSummary[] }>(
-    `/api/genre/${encodeURIComponent(genre)}?limit=${limit}&playlist_size=${playlistSize}`,
+    `/api/genre/${encodeURIComponent(genre)}?limit=${limit}&playlist_size=${playlistSize}&shuffle=${shuffle}`,
   );
 }
 

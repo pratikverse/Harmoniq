@@ -1,6 +1,7 @@
 import { Download, Trash2, X } from "lucide-react";
 import { usePlaylist } from "../lib/playlist";
 import SpotifyEmbed from "../components/SpotifyEmbed";
+import CreateSpotifyPlaylist from "../components/CreateSpotifyPlaylist";
 import type { TrackSummary } from "../api";
 
 function buildCsv(tracks: TrackSummary[]): string {
@@ -89,6 +90,10 @@ export default function Playlist() {
               <Trash2 className="size-4" />
               Clear playlist
             </button>
+          </div>
+
+          <div className="mt-6">
+            <CreateSpotifyPlaylist tracks={tracks} />
           </div>
 
           <details className="mt-6 rounded-md border border-border bg-surface p-4">

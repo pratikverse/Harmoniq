@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Shuffle } from "lucide-react";
 import { getGenreExplorer, getGenres, type TrackSummary } from "../api";
 import AddToPlaylistButton from "../components/AddToPlaylistButton";
 import SpotifyEmbed from "../components/SpotifyEmbed";
@@ -17,16 +18,20 @@ export default function Genre() {
     });
   }, []);
 
-  useEffect(() => {
-    if (!selectedGenre) return;
+  const load = useCallback((genre: string, shuffle: boolean) => {
+    if (!genre) return;
     setLoading(true);
-    getGenreExplorer(selectedGenre, 12, 20)
+    getGenreExplorer(genre, 12, 20, shuffle)
       .then((response) => {
         setPlaylist(response.playlist);
         setRecommendations(response.recommendations);
       })
       .finally(() => setLoading(false));
-  }, [selectedGenre]);
+  }, []);
+
+  useEffect(() => {
+    load(selectedGenre, false);
+  }, [selectedGenre, load]);
 
   return (
     <section className="mx-auto max-w-7xl px-5 py-12">
@@ -36,19 +41,29 @@ export default function Genre() {
         search query.
       </p>
 
-      <div className="mt-6 max-w-xs">
-        <label className="mb-1 block text-xs text-muted-foreground">Choose a genre</label>
-        <select
-          className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
-          value={selectedGenre}
-          onChange={(event) => setSelectedGenre(event.target.value)}
+      <div className="mt-6 flex max-w-xl items-end gap-3">
+        <div className="flex-1">
+          <label className="mb-1 block text-xs text-muted-foreground">Choose a genre</label>
+          <select
+            className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
+            value={selectedGenre}
+            onChange={(event) => setSelectedGenre(event.target.value)}
+          >
+            {genres.map((genre) => (
+              <option key={genre} value={genre}>
+                {genre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={() => load(selectedGenre, true)}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2.5 text-sm font-medium hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {genres.map((genre) => (
-            <option key={genre} value={genre}>
-              {genre}
-            </option>
-          ))}
-        </select>
+          <Shuffle className="size-4" />
+          Shuffle
+        </button>
       </div>
 
       {loading ? (

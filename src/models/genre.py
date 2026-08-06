@@ -130,9 +130,16 @@ def recommend_by_genre(
     dataframe: pd.DataFrame,
     selected_genre: str,
     n_recommendations: int = 12,
+    shuffle: bool = False,
+    random_state: int | None = None,
 ) -> pd.DataFrame:
     """
     Return a browseable set of tracks for a selected genre family.
+
+    `shuffle=True` widens the candidate pool (top popularity band,
+    5x the requested size) and samples from it instead of always
+    returning the strict top-N -- otherwise every call for a given
+    genre returns byte-identical results.
     """
 
     genre_df = dataframe[
@@ -161,6 +168,12 @@ def recommend_by_genre(
     genre_df = genre_df.drop_duplicates(
         subset=["track_name", "artists"]
     )
+
+    if shuffle:
+        pool_size = min(len(genre_df), max(n_recommendations * 5, n_recommendations))
+        pool = genre_df.head(pool_size)
+        return pool.sample(n=min(n_recommendations, len(pool)), random_state=random_state)
+
     return genre_df.head(n_recommendations)
 
 
@@ -168,6 +181,8 @@ def generate_genre_playlist(
     dataframe: pd.DataFrame,
     selected_genre: str,
     playlist_size: int = 20,
+    shuffle: bool = False,
+    random_state: int | None = None,
 ) -> pd.DataFrame:
     """
     Generate a fixed-length playlist for a selected genre family.
@@ -177,6 +192,8 @@ def generate_genre_playlist(
         dataframe=dataframe,
         selected_genre=selected_genre,
         n_recommendations=max(playlist_size * 3, playlist_size),
+        shuffle=shuffle,
+        random_state=random_state,
     )
 
     if playlist.empty:
