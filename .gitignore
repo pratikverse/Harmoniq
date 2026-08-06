@@ -21,19 +21,6 @@ models/trained/
 # the deployed inference artifacts and are committed deliberately -- see
 # docs/IMPROVEMENT_PLAN.md Phase 4.
 
-# Streamlit cache and secrets
-.streamlit/cache/
-.streamlit/secrets.toml
-
-# Evaluation reports -- one committed per landed phase (baseline.json,
-# phase1.json, ...) so each can be diffed against the last; see
-# docs/IMPROVEMENT_PLAN.md. Ad-hoc/exploratory runs stay gitignored.
-reports/*.json
-!reports/baseline.json
-!reports/phase1.json
-!reports/phase3.json
-!reports/phase4.json
-
 # OS specific files
 .DS_Store
 Thumbs.db
@@ -48,3 +35,23 @@ Thumbs.db
 
 # Jupyter Notebook temporary files
 .jupyter/
+
+# Kept locally only -- not pushed to GitHub, which only tracks what's
+# actually deployed (frontend/, models/, src/api/, src/models/, plus
+# render.yaml/requirements.txt/README.md). Everything below still
+# exists on disk; it's just not part of the public repo history.
+docs/
+reports/
+notebooks/
+tests/
+.streamlit/
+.devcontainer/
+.vscode/
+.github/
+src/ui/
+src/training/
+src/evaluation/
+pyproject.toml
+requirements-train.txt
+.python-version
+runtime.txt
