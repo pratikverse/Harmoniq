@@ -22,16 +22,6 @@ function buildCsv(tracks: TrackSummary[]): string {
   return [header, ...rows].join("\n") + "\n";
 }
 
-function buildM3u8(tracks: TrackSummary[]): string {
-  const lines = ["#EXTM3U"];
-  for (const track of tracks) {
-    const durationSeconds = Math.floor((track.duration_ms ?? 0) / 1000);
-    lines.push(`#EXTINF:${durationSeconds},${track.artists} - ${track.track_name}`);
-    lines.push(`https://open.spotify.com/track/${track.track_id ?? ""}`);
-  }
-  return lines.join("\n") + "\n";
-}
-
 function download(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -46,7 +36,6 @@ export default function Playlist() {
   const { tracks, remove, clear } = usePlaylist();
 
   const totalMinutes = tracks.reduce((sum, t) => sum + (t.duration_ms ?? 0), 0) / 60_000;
-  const uris = tracks.map((t) => `spotify:track:${t.track_id}`).join("\n");
 
   return (
     <section className="mx-auto max-w-7xl px-5 py-12">
@@ -75,15 +64,6 @@ export default function Playlist() {
               Download CSV
             </button>
             <button
-              onClick={() =>
-                download("harmoniq_playlist.m3u8", buildM3u8(tracks), "audio/x-mpegurl")
-              }
-              className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-sm font-medium hover:border-primary"
-            >
-              <Download className="size-4" />
-              Download M3U8
-            </button>
-            <button
               onClick={clear}
               className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-sm font-medium text-destructive hover:border-destructive"
             >
@@ -95,15 +75,6 @@ export default function Playlist() {
           <div className="mt-6">
             <CreateSpotifyPlaylist tracks={tracks} />
           </div>
-
-          <details className="mt-6 rounded-md border border-border bg-surface p-4">
-            <summary className="cursor-pointer text-sm font-medium">
-              Spotify URIs (paste into the desktop Spotify app)
-            </summary>
-            <pre className="mt-3 overflow-x-auto rounded-sm bg-background p-3 font-mono text-xs text-muted-foreground">
-              {uris}
-            </pre>
-          </details>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {tracks.map((track) => (
