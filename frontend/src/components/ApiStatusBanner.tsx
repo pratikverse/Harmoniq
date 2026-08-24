@@ -8,7 +8,7 @@ export default function ApiStatusBanner() {
 
   if (status === "offline") {
     return (
-      <div className="border-b border-destructive/40 bg-destructive/10">
+      <div className="border-b border-destructive/30 bg-destructive/5">
         <div className="mx-auto flex max-w-7xl items-start gap-2.5 px-5 py-2.5 text-sm">
           <PlugZap className="mt-0.5 size-4 shrink-0 text-destructive" />
           <p className="text-muted-foreground">

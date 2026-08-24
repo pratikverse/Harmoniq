@@ -19,12 +19,12 @@ export default function RecommendationCard({
   ].filter(Boolean);
 
   return (
-    <article className="rise space-y-3 rounded-md border border-border bg-surface p-4">
+    <article className="space-y-3 rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:border-primary/40 hover:shadow-lg">
       <div>
-        <h3 className="font-display text-base font-semibold">{recommendation.track_name}</h3>
+        <h3 className="text-lg font-semibold text-foreground">{recommendation.track_name}</h3>
         <p className="text-sm text-muted-foreground">{recommendation.artists}</p>
         <p className="text-sm text-muted-foreground">Genre: {recommendation.track_genre}</p>
-        <span className="mt-2 inline-block rounded-sm border border-border bg-accent px-2 py-0.5 text-xs text-foreground">
+        <span className="mt-2 inline-block rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
           Popularity {recommendation.popularity}
         </span>
       </div>
@@ -74,7 +74,7 @@ export default function RecommendationCard({
       </div>
 
       <button
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground underline decoration-dotted hover:text-foreground"
+        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline decoration-dotted transition-colors hover:text-primary"
         onClick={() => setShowDetails((value) => !value)}
       >
         {showDetails ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
@@ -90,7 +90,10 @@ export default function RecommendationCard({
             ["Popularity score", explanation.popularity_score_percent],
             ["Source support", explanation.source_support_percent],
           ].map(([label, value]) => (
-            <div key={label as string} className="grid grid-cols-[7rem_1fr_3rem] items-center gap-2 text-xs text-muted-foreground">
+            <div
+              key={label as string}
+              className="grid grid-cols-[7rem_1fr_3rem] items-center gap-2 text-xs text-muted-foreground"
+            >
               <span>{label}</span>
               <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div className="h-full bg-primary" style={{ width: `${value}%` }} />

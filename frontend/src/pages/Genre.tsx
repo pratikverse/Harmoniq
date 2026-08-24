@@ -3,6 +3,8 @@ import { Shuffle } from "lucide-react";
 import { getGenreExplorer, getGenres, type TrackSummary } from "../api";
 import AddToPlaylistButton from "../components/AddToPlaylistButton";
 import SpotifyEmbed from "../components/SpotifyEmbed";
+import SectionHeading from "../components/SectionHeading";
+import { Reveal } from "../lib/reveal";
 
 export default function Genre() {
   const [genres, setGenres] = useState<string[]>([]);
@@ -34,18 +36,18 @@ export default function Genre() {
   }, [selectedGenre, load]);
 
   return (
-    <section className="mx-auto max-w-7xl px-5 py-12">
-      <h1 className="font-display text-3xl font-bold sm:text-4xl">Genre Explorer</h1>
-      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Browse curated genre families and generate ready-to-share playlists without typing a
-        search query.
-      </p>
+    <section className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
+      <SectionHeading
+        eyebrow="Genre"
+        title="Genre Explorer"
+        description="Browse curated genre families and generate ready-to-share playlists without typing a search query."
+      />
 
-      <div className="mt-6 flex max-w-xl items-end gap-3">
+      <div className="mt-8 flex max-w-xl items-end gap-3">
         <div className="flex-1">
           <label className="mb-1 block text-xs text-muted-foreground">Choose a genre</label>
           <select
-            className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
+            className="w-full rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
             value={selectedGenre}
             onChange={(event) => setSelectedGenre(event.target.value)}
           >
@@ -59,7 +61,7 @@ export default function Genre() {
         <button
           onClick={() => load(selectedGenre, true)}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2.5 text-sm font-medium hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Shuffle className="size-4" />
           Shuffle
@@ -70,8 +72,8 @@ export default function Genre() {
         <p className="mt-8 text-sm text-muted-foreground">Loading…</p>
       ) : (
         <>
-          <div className="mt-10">
-            <h2 className="font-display text-xl font-semibold">
+          <div className="mt-12">
+            <h2 className="text-xl font-semibold text-foreground">
               {selectedGenre} Playlist Generator
             </h2>
             {playlist.length === 0 ? (
@@ -83,21 +85,23 @@ export default function Genre() {
                 <p className="mt-2 text-sm text-muted-foreground">
                   Generated a {playlist.length}-song playlist for {selectedGenre}.
                 </p>
-                <div className="mt-4 overflow-hidden rounded-md border border-border">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-border">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-surface text-xs uppercase tracking-wide text-muted-foreground">
+                    <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
                       <tr>
-                        <th className="px-4 py-2 font-medium">Track</th>
-                        <th className="px-4 py-2 font-medium">Artist</th>
-                        <th className="px-4 py-2 font-medium">Genre</th>
+                        <th className="px-4 py-2.5 font-medium">Track</th>
+                        <th className="px-4 py-2.5 font-medium">Artist</th>
+                        <th className="px-4 py-2.5 font-medium">Genre</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {playlist.map((track) => (
                         <tr key={track.index}>
-                          <td className="px-4 py-2">{track.track_name}</td>
-                          <td className="px-4 py-2 text-muted-foreground">{track.artists}</td>
-                          <td className="px-4 py-2 text-muted-foreground">{track.track_genre}</td>
+                          <td className="px-4 py-2.5">{track.track_name}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{track.artists}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">
+                            {track.track_genre}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -107,7 +111,7 @@ export default function Genre() {
             )}
           </div>
 
-          <div className="mt-10">
+          <div className="mt-12">
             {recommendations.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No tracks were found for the {selectedGenre} explorer group.
@@ -117,31 +121,30 @@ export default function Genre() {
                 <p className="text-sm text-muted-foreground">
                   Showing browseable {selectedGenre.toLowerCase()} picks without using search.
                 </p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  {recommendations.map((track) => (
-                    <article
-                      key={track.index}
-                      className="rise space-y-3 rounded-md border border-border bg-surface p-4"
-                    >
-                      <div>
-                        <h3 className="font-display text-base font-semibold">
-                          {track.track_name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">{track.artists}</p>
+                <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                  {recommendations.map((track, i) => (
+                    <Reveal key={track.index} delay={i * 50}>
+                      <article className="h-full space-y-3 rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:border-primary/40 hover:shadow-lg">
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground">
+                            {track.track_name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{track.artists}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Genre: {track.track_genre}
+                          </p>
+                          <span className="mt-2 inline-block rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                            Popularity {track.popularity}
+                          </span>
+                        </div>
                         <p className="text-sm text-muted-foreground">
-                          Genre: {track.track_genre}
+                          This track appears in the {selectedGenre.toLowerCase()} explorer because
+                          its dataset genre maps into that family.
                         </p>
-                        <span className="mt-2 inline-block rounded-sm border border-border bg-accent px-2 py-0.5 text-xs">
-                          Popularity {track.popularity}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        This track appears in the {selectedGenre.toLowerCase()} explorer because
-                        its dataset genre maps into that family.
-                      </p>
-                      <SpotifyEmbed trackId={track.track_id} />
-                      <AddToPlaylistButton track={track} />
-                    </article>
+                        <SpotifyEmbed trackId={track.track_id} />
+                        <AddToPlaylistButton track={track} />
+                      </article>
+                    </Reveal>
                   ))}
                 </div>
               </>

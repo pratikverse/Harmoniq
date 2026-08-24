@@ -1,3 +1,6 @@
+import SectionHeading from "../components/SectionHeading";
+import { Reveal } from "../lib/reveal";
+
 const STAGES = [
   {
     title: "Search",
@@ -27,7 +30,10 @@ const STAGES = [
 ];
 
 const COMPONENTS = [
-  ["Mood", "Six weighted heuristics (Workout/Study/Sleep/Party/Happy/Sad) over the same audio features, no separate model."],
+  [
+    "Mood",
+    "Six weighted heuristics (Workout/Study/Sleep/Party/Happy/Sad) over the same audio features, no separate model.",
+  ],
   ["Genre Explorer", "Dataset genre labels mapped into five broad families via keyword + token matching."],
   ["Playlist", "Built and stored entirely client-side -- no account, no server-side session."],
   ["Visualization", "3D PCA projection of the retrieval embedding, stratified-sampled per genre for the browser."],
@@ -42,38 +48,39 @@ const LIMITS = [
 
 export default function HowItWorks() {
   return (
-    <div className="mx-auto max-w-4xl px-5 py-16">
-      <h1 className="font-display text-3xl font-bold sm:text-4xl">How it works</h1>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        One pipeline, five stages. A search resolves to a track, retrieval finds nearest neighbors
-        in audio-feature space, four candidate pools are blended into one ranked list, and every
-        result comes with a human-readable reason it was picked.
-      </p>
+    <div className="mx-auto max-w-4xl px-6 py-16 sm:py-20">
+      <SectionHeading
+        eyebrow="Under the hood"
+        title="How it works"
+        description="One pipeline, five stages. A search resolves to a track, retrieval finds nearest neighbors in audio-feature space, four candidate pools are blended into one ranked list, and every result comes with a human-readable reason it was picked."
+      />
 
-      <ol className="mt-12 space-y-px overflow-hidden rounded-md border border-border bg-border">
+      <ol className="mt-12 space-y-4">
         {STAGES.map((s, i) => (
-          <li key={s.title} className="bg-surface p-5">
-            <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
-              <span className="num font-mono text-xs text-primary">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="truncate font-display text-base font-semibold">{s.title}</h2>
-                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-                    {s.model}
-                  </span>
+          <Reveal as="li" key={s.title} delay={i * 60}>
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
+                <span className="num font-mono text-xs text-primary">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h2 className="truncate text-base font-semibold text-foreground">{s.title}</h2>
+                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                      {s.model}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
                 </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
             </div>
-          </li>
+          </Reveal>
         ))}
       </ol>
 
-      <section className="mt-14">
-        <h2 className="font-display text-xl font-semibold">The other pages</h2>
-        <dl className="mt-4 divide-y divide-border rounded-md border border-border bg-surface">
+      <Reveal className="mt-16">
+        <h2 className="text-xl font-semibold text-foreground">The other pages</h2>
+        <dl className="mt-4 divide-y divide-border rounded-2xl border border-border bg-card">
           {COMPONENTS.map(([k, v]) => (
             <div key={k} className="grid gap-1 p-4 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
               <dt className="font-mono text-xs text-primary">{k}</dt>
@@ -81,10 +88,10 @@ export default function HowItWorks() {
             </div>
           ))}
         </dl>
-      </section>
+      </Reveal>
 
-      <section className="mt-14">
-        <h2 className="font-display text-xl font-semibold">Hard constraints</h2>
+      <Reveal className="mt-16">
+        <h2 className="text-xl font-semibold text-foreground">Hard constraints</h2>
         <ul className="mt-4 space-y-2">
           {LIMITS.map((l) => (
             <li key={l} className="flex gap-3 text-sm text-muted-foreground">
@@ -93,7 +100,7 @@ export default function HowItWorks() {
             </li>
           ))}
         </ul>
-      </section>
+      </Reveal>
     </div>
   );
 }

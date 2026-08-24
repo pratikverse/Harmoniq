@@ -13,7 +13,7 @@ export default function CreateSpotifyPlaylist({ tracks }: { tracks: TrackSummary
 
   if (!configured) {
     return (
-      <p className="rounded-md border border-border bg-surface p-4 text-sm text-muted-foreground">
+      <p className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
         Spotify playlist export isn't configured for this deployment (no client ID set).
       </p>
     );
@@ -24,7 +24,7 @@ export default function CreateSpotifyPlaylist({ tracks }: { tracks: TrackSummary
       <div>
         <button
           onClick={connect}
-          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md"
         >
           <Music className="size-4" />
           Connect Spotify
@@ -57,7 +57,7 @@ export default function CreateSpotifyPlaylist({ tracks }: { tracks: TrackSummary
 
   if (status === "done" && playlistUrl) {
     return (
-      <div className="rounded-md border border-border bg-surface p-4">
+      <div className="rounded-2xl border border-border bg-card p-4">
         <p className="text-sm">Playlist created in your Spotify account.</p>
         <a
           href={playlistUrl}
@@ -73,10 +73,10 @@ export default function CreateSpotifyPlaylist({ tracks }: { tracks: TrackSummary
   }
 
   return (
-    <div className="rounded-md border border-border bg-surface p-4">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <label className="mb-1 block text-xs text-muted-foreground">Playlist name</label>
       <input
-        className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
+        className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm outline-none focus:border-ring"
         value={name}
         onChange={(event) => setName(event.target.value)}
       />
@@ -84,7 +84,7 @@ export default function CreateSpotifyPlaylist({ tracks }: { tracks: TrackSummary
       <button
         onClick={handleCreate}
         disabled={status === "creating" || trackUris.length === 0}
-        className="mt-3 inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
       >
         <Music className="size-4" />
         {status === "creating" ? "Creating…" : "Create Spotify Playlist"}

@@ -34,7 +34,7 @@ export default function App() {
                   <Route path="/callback" element={<Callback />} />
                 </Routes>
               </main>
-              <footer className="border-t border-border/70 px-5 py-6">
+              <footer className="border-t border-border px-6 py-8">
                 <p className="mx-auto max-w-7xl text-xs text-muted-foreground">
                   Harmoniq | Hybrid music recommendation, mood discovery, genre exploration, and
                   explainable AI in one polished web experience.

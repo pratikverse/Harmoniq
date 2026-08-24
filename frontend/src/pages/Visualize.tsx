@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { getHeatmap, getPcaProjection, type PcaPoint } from "../api";
+import SectionHeading from "../components/SectionHeading";
+import { Reveal } from "../lib/reveal";
 
 const PALETTE = [
-  "oklch(0.85 0.03 90)",
-  "oklch(0.68 0.17 195)",
-  "oklch(0.72 0.16 150)",
-  "oklch(0.78 0.16 85)",
-  "oklch(0.68 0.2 340)",
-  "oklch(0.7 0.15 60)",
-  "oklch(0.6 0.18 280)",
-  "oklch(0.75 0.14 20)",
+  "oklch(0.62 0.19 256)",
+  "oklch(0.6 0.17 195)",
+  "oklch(0.64 0.16 150)",
+  "oklch(0.7 0.16 85)",
+  "oklch(0.62 0.2 340)",
+  "oklch(0.64 0.15 60)",
+  "oklch(0.56 0.18 280)",
+  "oklch(0.66 0.14 20)",
 ];
-const OTHER_COLOR = "oklch(0.4 0.01 85)";
+const OTHER_COLOR = "oklch(0.78 0.013 230)";
 
 function ScatterPlot({ points }: { points: PcaPoint[] }) {
   const { topGenres, colorFor, xDomain, yDomain } = useMemo(() => {
@@ -47,10 +49,10 @@ function ScatterPlot({ points }: { points: PcaPoint[] }) {
     height - pad - ((v - yDomain[0]) / (yDomain[1] - yDomain[0] || 1)) * (height - pad * 2);
 
   return (
-    <div>
+    <div className="mt-4">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full rounded-md border border-border bg-surface"
+        className="w-full rounded-2xl border border-border bg-card"
       >
         {points.map((p, i) => (
           <circle
@@ -88,28 +90,28 @@ function ScatterPlot({ points }: { points: PcaPoint[] }) {
 
 function Heatmap({ features, matrix }: { features: string[]; matrix: number[][] }) {
   function colorFor(value: number) {
-    // Diverging scale: negative -> chart-5 (magenta), positive -> primary (cream).
+    // Diverging scale: negative -> chart-5 (magenta), positive -> primary (blue).
     const t = Math.min(Math.abs(value), 1);
     return value >= 0
-      ? `oklch(0.85 0.03 90 / ${0.15 + t * 0.65})`
-      : `oklch(0.68 0.2 340 / ${0.15 + t * 0.65})`;
+      ? `oklch(0.62 0.19 256 / ${0.12 + t * 0.55})`
+      : `oklch(0.645 0.246 16.439 / ${0.12 + t * 0.55})`;
   }
 
   return (
     <div className="overflow-x-auto">
       <div
-        className="inline-grid gap-px rounded-md border border-border bg-border"
+        className="inline-grid gap-px overflow-hidden rounded-2xl border border-border bg-border"
         style={{ gridTemplateColumns: `8rem repeat(${features.length}, 4.5rem)` }}
       >
-        <div className="bg-surface" />
+        <div className="bg-card" />
         {features.map((f) => (
-          <div key={f} className="bg-surface p-2 text-center text-[10px] text-muted-foreground">
+          <div key={f} className="bg-card p-2 text-center text-[10px] text-muted-foreground">
             {f}
           </div>
         ))}
         {matrix.map((row, i) => (
           <>
-            <div key={`label-${i}`} className="bg-surface p-2 text-xs text-muted-foreground">
+            <div key={`label-${i}`} className="bg-card p-2 text-xs text-muted-foreground">
               {features[i]}
             </div>
             {row.map((value, j) => (
@@ -139,23 +141,24 @@ export default function Visualize() {
   }, []);
 
   return (
-    <section className="mx-auto max-w-7xl px-5 py-12">
-      <h1 className="font-display text-3xl font-bold sm:text-4xl">Visualization</h1>
-      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        A 2D projection (first two principal components) of the retrieval embedding, stratified-
-        sampled to ~8,000 tracks across the catalog's genres, plus the audio-feature correlation
-        matrix the ranking weights are tuned against.
-      </p>
+    <section className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
+      <SectionHeading
+        eyebrow="Visualization"
+        title="Visualization"
+        description="A 2D projection (first two principal components) of the retrieval embedding, stratified-sampled to ~8,000 tracks across the catalog's genres, plus the audio-feature correlation matrix the ranking weights are tuned against."
+      />
 
-      <div className="mt-8">
-        <h2 className="font-display text-xl font-semibold">Latent space</h2>
-        {points ? <ScatterPlot points={points} /> : (
+      <Reveal className="mt-10">
+        <h2 className="text-xl font-semibold text-foreground">Latent space</h2>
+        {points ? (
+          <ScatterPlot points={points} />
+        ) : (
           <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
         )}
-      </div>
+      </Reveal>
 
-      <div className="mt-12">
-        <h2 className="font-display text-xl font-semibold">Feature correlation</h2>
+      <Reveal className="mt-12">
+        <h2 className="text-xl font-semibold text-foreground">Feature correlation</h2>
         {heatmap ? (
           <div className="mt-4">
             <Heatmap features={heatmap.features} matrix={heatmap.matrix} />
@@ -163,7 +166,7 @@ export default function Visualize() {
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
         )}
-      </div>
+      </Reveal>
     </section>
   );
 }

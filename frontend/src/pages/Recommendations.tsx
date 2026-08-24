@@ -11,6 +11,8 @@ import {
 } from "../api";
 import RecommendationCard from "../components/RecommendationCard";
 import SpotifyEmbed from "../components/SpotifyEmbed";
+import SectionHeading from "../components/SectionHeading";
+import { Reveal } from "../lib/reveal";
 
 export default function Recommendations() {
   const [intents, setIntents] = useState<IntentProfile[]>([]);
@@ -92,22 +94,22 @@ export default function Recommendations() {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-5 py-12">
-      <h1 className="font-display text-3xl font-bold sm:text-4xl">Music Recommendations</h1>
-      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Search by title or artist, choose a recommendation style, and inspect the hybrid score
-        breakdown behind each suggestion.
-      </p>
+    <section className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
+      <SectionHeading
+        eyebrow="Recommendations"
+        title="Music Recommendations"
+        description="Search by title or artist, choose a recommendation style, and inspect the hybrid score breakdown behind each suggestion."
+      />
 
       {error && (
-        <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm">
+        <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm">
           {error}
         </div>
       )}
 
-      <div className="mt-6 max-w-xl space-y-4">
+      <div className="mt-8 max-w-xl space-y-4">
         <input
-          className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
+          className="w-full rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
           type="text"
           placeholder="Try: blinding lights, weeknd, shape of you, calm down..."
           value={query}
@@ -117,7 +119,7 @@ export default function Recommendations() {
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">Recommendation style</label>
           <select
-            className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
+            className="w-full rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
             value={selectedIntent}
             onChange={(event) => setSelectedIntent(event.target.value)}
           >
@@ -140,7 +142,7 @@ export default function Recommendations() {
                 Autocomplete suggestions
               </label>
               <select
-                className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
+                className="w-full rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
                 value={selectedTrackIndex ?? ""}
                 onChange={(event) => setSelectedTrackIndex(Number(event.target.value))}
               >
@@ -160,7 +162,7 @@ export default function Recommendations() {
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Browse songs</label>
             <select
-              className="w-full rounded-sm border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
+              className="w-full rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:border-ring"
               value={selectedTrackIndex ?? ""}
               onChange={(event) => setSelectedTrackIndex(Number(event.target.value))}
             >
@@ -177,7 +179,7 @@ export default function Recommendations() {
         )}
 
         <button
-          className="w-full rounded-sm bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
           disabled={selectedTrackIndex == null || loading}
           onClick={handleGetRecommendations}
         >
@@ -187,12 +189,12 @@ export default function Recommendations() {
 
       {result && (
         <>
-          <div className="mt-12">
-            <h2 className="font-display text-xl font-semibold">Currently Playing</h2>
+          <Reveal className="mt-16">
+            <h2 className="text-xl font-semibold text-foreground">Currently Playing</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-[2fr_3fr]">
               <SpotifyEmbed trackId={result.selected_track.track_id} />
-              <div className="rounded-md border border-border bg-surface p-4">
-                <h3 className="font-display text-base font-semibold">
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <h3 className="text-base font-semibold text-foreground">
                   {result.selected_track.track_name}
                 </h3>
                 <p className="text-sm text-muted-foreground">
@@ -201,18 +203,20 @@ export default function Recommendations() {
                 <p className="text-sm text-muted-foreground">
                   Genre: {result.selected_track.track_genre}
                 </p>
-                <span className="mt-2 inline-block rounded-sm border border-border bg-accent px-2 py-0.5 text-xs">
+                <span className="mt-2 inline-block rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
                   Popularity {result.selected_track.popularity}
                 </span>
               </div>
             </div>
-          </div>
+          </Reveal>
 
           <div className="mt-12">
-            <h2 className="font-display text-xl font-semibold">Recommended Songs</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {result.recommendations.map((recommendation) => (
-                <RecommendationCard key={recommendation.index} recommendation={recommendation} />
+            <h2 className="text-xl font-semibold text-foreground">Recommended Songs</h2>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              {result.recommendations.map((recommendation, i) => (
+                <Reveal key={recommendation.index} delay={i * 60}>
+                  <RecommendationCard recommendation={recommendation} />
+                </Reveal>
               ))}
             </div>
           </div>
