@@ -48,6 +48,9 @@ Two processes:
 
 ```bash
 # Backend (FastAPI) -- from repo root
+conda create -n harmoniq python=3.13
+conda activate harmoniq
+
 pip install -r requirements.txt
 uvicorn src.api.main:app --port 8000
 ```
