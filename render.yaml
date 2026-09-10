@@ -6,7 +6,7 @@
 # After the first deploy (see README "Deployment"):
 #   - set CORS_ORIGINS on `harmoniq` to the frontend URL (marked sync: false)
 #   - add `<frontend-origin>/callback` to the Spotify app's Redirect URIs
-# VITE_API_BASE_URL is filled in automatically from the API service.
+#   - if the API service URL differs from VITE_API_BASE_URL below, fix it here
 
 services:
   - type: web
@@ -43,10 +43,9 @@ services:
       - key: NODE_VERSION
         value: "22.16.0"
       - key: VITE_API_BASE_URL
-        # The API service's hostname; api.ts upgrades a bare host to https.
-        fromService:
-          type: web
-          name: harmoniq
-          property: host
+        # Render's fromService `host` returns only the bare service name
+        # (no .onrender.com), so it's set explicitly. Update this if the
+        # API service URL changes.
+        value: https://harmoniq-3n76.onrender.com
       - key: VITE_SPOTIFY_CLIENT_ID
         value: 3631ec109e1f47a3899f50e4a2fcef58

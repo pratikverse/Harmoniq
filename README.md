@@ -116,9 +116,10 @@ memory at boot.
 
 1. In the Render dashboard: **New → Blueprint**, point it at this repo. Render
    reads `render.yaml` and creates both services.
-2. The frontend's `VITE_API_BASE_URL` is pulled from the API service
-   automatically (`api.ts` upgrades a bare host to `https://`).
-   `VITE_SPOTIFY_CLIENT_ID` is baked into `render.yaml` (a public identifier).
+2. `VITE_API_BASE_URL` and `VITE_SPOTIFY_CLIENT_ID` are baked into
+   `render.yaml` (both are public). If Render assigns the API service a URL
+   other than the one in `render.yaml`, update `VITE_API_BASE_URL` there and
+   redeploy the static site.
 3. After the first build, note the real URLs, then:
    - set the API service's **`CORS_ORIGINS`** env var to the frontend URL
      (the one env var marked `sync: false`), which triggers a redeploy;
