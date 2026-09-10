@@ -49,6 +49,15 @@ from src.models.visualization import calculate_correlation, calculate_pca
 logger = logging.getLogger("harmoniq.api")
 
 
+def _clamp(value: int, low: int, high: int) -> int:
+    """
+    Keep a user-supplied count within sane bounds. Guards against negative
+    values (which turn `.head(n)` / list slices into "all but n") and
+    absurdly large ones (needless full-catalog work per request).
+    """
+    return max(low, min(value, high))
+
+
 def once(build):
     """
     Single-evaluation cache for a zero-argument loader.
@@ -191,12 +200,13 @@ def intents() -> dict:
 
 @app.get("/api/search")
 def search(q: str, limit: int = 12) -> dict:
-    matches = intelligent_search(q, get_search_index(), limit=limit)
+    matches = intelligent_search(q, get_search_index(), limit=_clamp(limit, 1, 50))
     return {"matches": matches}
 
 
 @app.get("/api/browse")
 def browse(limit: int = 500) -> dict:
+    limit = _clamp(limit, 1, 2000)
     df = get_resources()["dataframe"]
     if "popularity" in df.columns:
         browse_df = df.sort_values("popularity", ascending=False).head(limit)
@@ -235,11 +245,17 @@ def recommend(request: RecommendRequest) -> dict:
     )
 
     recommendation_payloads = []
-    for offset, row in recommendations.iterrows():
+    for _, row in recommendations.iterrows():
+        # `row.name` here is a position in the candidate pool, not a catalog
+        # index -- build_candidate_pool re-indexes the frame after its
+        # groupby. The real catalog index is carried in the "row_index"
+        # column, which is what a client needs to request follow-on
+        # recommendations for this track.
+        catalog_index = int(row["row_index"])
         explanation = explain_recommendation(selected_track, row)
         recommendation_payloads.append(
             {
-                **track_summary(row, int(offset)),
+                **track_summary(row, catalog_index),
                 "ranking_score": to_native(row["ranking_score"]),
                 "explanation": to_native(explanation),
             }
@@ -262,7 +278,7 @@ def mood_recommendations(mood: str, limit: int = 12) -> dict:
         raise HTTPException(status_code=404, detail="Unknown mood.")
 
     catalog = get_mood_catalog()
-    results = recommend_by_mood(catalog, mood, n_recommendations=limit)
+    results = recommend_by_mood(catalog, mood, n_recommendations=_clamp(limit, 1, 100))
 
     payloads = []
     for offset, row in results.iterrows():
@@ -293,6 +309,9 @@ def genre_explorer(
 ) -> dict:
     if genre not in GENRE_EXPLORER_OPTIONS:
         raise HTTPException(status_code=404, detail="Unknown genre.")
+
+    limit = _clamp(limit, 1, 100)
+    playlist_size = _clamp(playlist_size, 1, 100)
 
     df = get_resources()["dataframe"]
     random_state = random.randint(0, 2**31 - 1) if shuffle else None

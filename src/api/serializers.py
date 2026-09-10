@@ -13,13 +13,18 @@ import pandas as pd
 
 def to_native(value: Any) -> Any:
     if isinstance(value, np.generic):
-        return value.item()
+        value = value.item()
     if isinstance(value, dict):
         return {key: to_native(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, (list, tuple, np.ndarray)):
         return [to_native(item) for item in value]
-    if pd.isna(value) if np.isscalar(value) else False:
-        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        # pd.isna raises / returns an array for containers -- those are
+        # handled above, anything else here is a plain scalar to pass through.
+        pass
     return value
 
 

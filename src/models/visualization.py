@@ -4,11 +4,14 @@ Visualization utilities for Harmoniq.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 from sklearn.decomposition import PCA
+
+if TYPE_CHECKING:
+    import plotly.graph_objects as go
 
 
 def calculate_pca(
@@ -52,10 +55,12 @@ def calculate_correlation(
 def plot_feature_heatmap(
     dataframe: pd.DataFrame,
     numeric_features: list[str],
-) -> go.Figure:
+) -> "go.Figure":
     """
     Create an interactive correlation heatmap.
     """
+
+    import plotly.graph_objects as go
 
     correlation = calculate_correlation(
         dataframe,
@@ -92,7 +97,7 @@ def plot_tracks_by_genre(
     sample_per_genre: int = 200,
     max_points: int = 8000,
     random_state: int = 42,
-) -> go.Figure:
+) -> "go.Figure":
     """
     Visualize latent embeddings using PCA.
 
@@ -102,6 +107,8 @@ def plot_tracks_by_genre(
     finding 9). PCA itself still runs on the full matrix -- only the
     rendered subset is capped.
     """
+
+    import plotly.express as px
 
     projection = calculate_pca(
         latent_features,

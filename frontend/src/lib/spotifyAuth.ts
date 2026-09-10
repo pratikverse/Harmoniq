@@ -11,6 +11,7 @@ const SCOPES = "playlist-modify-private playlist-modify-public";
 
 const TOKEN_KEY = "harmoniq_spotify_token";
 const VERIFIER_KEY = "harmoniq_spotify_verifier";
+const STATE_KEY = "harmoniq_spotify_state";
 
 interface StoredToken {
   access_token: string;
@@ -30,6 +31,11 @@ function generateCodeVerifier(): string {
   return base64UrlEncode(bytes.buffer);
 }
 
+function generateState(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return base64UrlEncode(bytes.buffer);
+}
+
 async function generateCodeChallenge(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
   return base64UrlEncode(digest);
@@ -46,6 +52,9 @@ export async function startLogin(): Promise<void> {
   sessionStorage.setItem(VERIFIER_KEY, verifier);
   const challenge = await generateCodeChallenge(verifier);
 
+  const state = generateState();
+  sessionStorage.setItem(STATE_KEY, state);
+
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: "code",
@@ -53,14 +62,24 @@ export async function startLogin(): Promise<void> {
     scope: SCOPES,
     code_challenge_method: "S256",
     code_challenge: challenge,
+    state,
   });
 
   window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
 }
 
-export async function handleCallback(code: string): Promise<void> {
+export async function handleCallback(code: string, returnedState: string | null): Promise<void> {
+  // Already exchanged (e.g. React StrictMode invokes the effect twice, and
+  // the auth code is single-use) -- treat as success instead of erroring on
+  // the now-missing verifier.
+  if (isLoggedIn() && !sessionStorage.getItem(VERIFIER_KEY)) return;
+
   const verifier = sessionStorage.getItem(VERIFIER_KEY);
+  const expectedState = sessionStorage.getItem(STATE_KEY);
   if (!verifier || !CLIENT_ID) throw new Error("Missing PKCE verifier or client id.");
+  if (!expectedState || returnedState !== expectedState) {
+    throw new Error("Spotify state mismatch -- possible CSRF, aborting.");
+  }
 
   const response = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
@@ -78,6 +97,7 @@ export async function handleCallback(code: string): Promise<void> {
   const data = await response.json();
   storeToken(data);
   sessionStorage.removeItem(VERIFIER_KEY);
+  sessionStorage.removeItem(STATE_KEY);
 }
 
 function storeToken(data: {

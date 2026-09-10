@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { handleCallback } from "../lib/spotifyAuth";
 import { useSpotifyAuth } from "../lib/SpotifyAuthContext";
@@ -8,10 +8,15 @@ export default function Callback() {
   const navigate = useNavigate();
   const { refresh } = useSpotifyAuth();
   const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
     const code = searchParams.get("code");
     const authError = searchParams.get("error");
+    const state = searchParams.get("state");
 
     if (authError) {
       setError(`Spotify declined the connection: ${authError}`);
@@ -22,7 +27,7 @@ export default function Callback() {
       return;
     }
 
-    handleCallback(code)
+    handleCallback(code, state)
       .then(() => {
         refresh();
         navigate("/playlist", { replace: true });
