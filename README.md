@@ -59,7 +59,7 @@ requirements.txt              API runtime deps (pinned); requirements-dev.txt ad
 
 ```bash
 # Backend (FastAPI) — from repo root
-conda create -n harmoniq python=3.11 && conda activate harmoniq
+conda create -n harmoniq python=3.12 && conda activate harmoniq
 pip install -r requirements.txt
 uvicorn src.api.main:app --port 8000        # docs at http://127.0.0.1:8000/docs
 ```

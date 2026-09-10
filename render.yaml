@@ -18,7 +18,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11.13"
+        value: "3.12.9"
       - key: CORS_ORIGINS
         # Set to the frontend URL in the dashboard after the first deploy
         # (comma-separated for more than one). A bare host is upgraded to
