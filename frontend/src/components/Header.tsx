@@ -22,8 +22,8 @@ const STATUS_LABEL = {
 
 const STATUS_DOT = {
   connecting: "bg-muted-foreground",
-  waking: "bg-chart-4 animate-pulse",
-  ready: "bg-chart-3",
+  waking: "bg-chart-3 animate-pulse",
+  ready: "bg-chart-2",
   offline: "bg-destructive",
 } as const;
 
