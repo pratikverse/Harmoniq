@@ -8,8 +8,11 @@ visualization.
 
 Two deployables:
 
-- **`src/api/`** — a FastAPI backend wrapping the recommendation engine, deployed on Render.
-- **`frontend/`** — a React + TypeScript + Vite + Tailwind frontend, deployed on Vercel.
+- **`src/api/`** — a FastAPI backend wrapping the recommendation engine.
+- **`frontend/`** — a React + TypeScript + Vite + Tailwind frontend.
+
+Both deploy to Render's free tier from a single `render.yaml` Blueprint (see
+[Deployment](#deployment)).
 
 ## Hard constraint: the catalog is frozen
 
@@ -91,17 +94,51 @@ frontend/
     components/                 shared UI (cards, embeds, header, Spotify connect)
     lib/                        playlist state (localStorage), Spotify OAuth (PKCE)
     api.ts                      typed fetch wrapper over the FastAPI backend
-render.yaml                 Render deploy config (backend)
+render.yaml                 Render Blueprint (API + static frontend)
 ```
 
 ## Deployment
 
-- **Backend (Render)**: `render.yaml` builds with `pip install -r requirements.txt` and runs
-  `uvicorn src.api.main:app`.
-- **Frontend (Vercel)**: root directory `frontend/`, framework auto-detected (Vite). Set
-  `VITE_API_BASE_URL` to the Render backend URL and `VITE_SPOTIFY_CLIENT_ID` for Spotify playlist
-  export. `frontend/vercel.json` adds the SPA rewrite rule client-side routing needs.
-- **Spotify app**: register at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard),
-  add each deployment's `/callback` URL (e.g. `https://your-app.vercel.app/callback`) under
-  Redirect URIs. Apps start in Development Mode, capped at 5 explicitly-allowlisted Spotify
-  accounts (Settings → User Management) — there's currently no self-serve path to broader access.
+Everything runs on **Render's free tier**, defined by one `render.yaml`
+Blueprint with two services:
+
+| Service | Type | Build | Serves |
+|---|---|---|---|
+| `harmoniq` | Python web service | `pip install -r requirements.txt` → `uvicorn src.api.main:app` | the API; health check at `/api/health` |
+| `harmoniq-web` | Static site | `npm ci && npm run build` in `frontend/`, publish `dist/` | the React app, with an SPA rewrite to `/index.html` |
+
+The API is a native Python service — no Dockerfile, because nothing here
+needs a system package. There is no database or object storage: the model
+artifacts in `models/` (~11 MB, committed) are the entire state, loaded into
+memory at boot.
+
+**First deploy**
+
+1. In the Render dashboard: **New → Blueprint**, point it at this repo. Render
+   reads `render.yaml` and creates both services.
+2. The frontend's `VITE_API_BASE_URL` is pulled from the API service
+   automatically (`api.ts` upgrades a bare host to `https://`).
+   `VITE_SPOTIFY_CLIENT_ID` is baked into `render.yaml` (a public identifier).
+3. After the first build, note the real URLs, then:
+   - set the API service's **`CORS_ORIGINS`** env var to the frontend URL
+     (the one env var marked `sync: false`), which triggers a redeploy;
+   - add `https://<frontend-url>/callback` to the Spotify app's **Redirect
+     URIs** (below).
+
+**Free-tier behaviour**: the API container sleeps after ~15 min idle; the
+first request then pays a ~60 s cold start (process boot + artifact load).
+The frontend's status banner (`lib/apiStatus.tsx`) is built around this — it
+shows "waking up" rather than "offline" during the grace window.
+
+**Spotify app**: register at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard),
+add `https://<frontend-url>/callback` (and `http://localhost:5175/callback` for
+local dev) under **Redirect URIs**. Apps start in Development Mode, capped at 5
+explicitly-allowlisted Spotify accounts (Settings → User Management) — there is
+currently no self-serve path to broader access.
+
+**Local build parity**: `frontend/.env.production` holds fallback values for a
+local `npm run build`; Render's injected env vars override them.
+
+> `frontend/vercel.json` is left in place for anyone who prefers to host the
+> frontend on Vercel instead — it carries the same SPA rewrite. It is unused by
+> the Render deploy.

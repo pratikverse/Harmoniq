@@ -1,4 +1,12 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// A bare host (e.g. from a Render `fromService` reference) is upgraded to
+// https; a full URL is used as-is; nothing set falls back to local dev.
+function resolveApiBaseUrl(raw: string | undefined): string {
+  if (!raw) return "http://localhost:8000";
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  return /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 // Vite inlines VITE_* at build time, so a missing VITE_API_BASE_URL bakes the
 // localhost fallback into the deployed bundle -- every visitor then calls a

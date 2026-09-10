@@ -1,3 +1,13 @@
+# Render Blueprint: FastAPI recommendation API + the static React frontend.
+# Both run on Render's free tier. The API is a native Python service (no
+# system packages needed, so no Dockerfile); the frontend is a static site
+# built by Vite.
+#
+# After the first deploy (see README "Deployment"):
+#   - set CORS_ORIGINS on `harmoniq` to the frontend URL (marked sync: false)
+#   - add `<frontend-origin>/callback` to the Spotify app's Redirect URIs
+# VITE_API_BASE_URL is filled in automatically from the API service.
+
 services:
   - type: web
     name: harmoniq
@@ -5,6 +15,38 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.13
+        value: "3.11.13"
+      - key: CORS_ORIGINS
+        # Set to the frontend URL in the dashboard after the first deploy
+        # (comma-separated for more than one). A bare host is upgraded to
+        # https. localhost + the old Vercel host are always allowed.
+        sync: false
+
+  - type: web
+    name: harmoniq-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    envVars:
+      - key: NODE_VERSION
+        value: "22.16.0"
+      - key: VITE_API_BASE_URL
+        # The API service's hostname; api.ts upgrades a bare host to https.
+        fromService:
+          type: web
+          name: harmoniq
+          property: host
+      - key: VITE_SPOTIFY_CLIENT_ID
+        value: 3631ec109e1f47a3899f50e4a2fcef58

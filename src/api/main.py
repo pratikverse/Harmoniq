@@ -10,6 +10,7 @@ the same recommendation engine the Streamlit app used.
 from __future__ import annotations
 
 import logging
+import os
 import random
 import sys
 import threading
@@ -126,13 +127,33 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Harmoniq API", lifespan=lifespan)
 
+# Origins allowed to call the API from a browser. The deployed frontend's
+# origin comes from CORS_ORIGINS (comma-separated) so it can be set per
+# environment without a code change; local dev + the old Vercel host stay
+# baked in. A bare host ("harmoniq-web.onrender.com") is upgraded to https.
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+    "https://harmoniq-ruddy.vercel.app",
+]
+
+
+def _normalize_origin(origin: str) -> str:
+    origin = origin.strip().rstrip("/")
+    if origin and "://" not in origin:
+        origin = f"https://{origin}"
+    return origin
+
+
+_env_cors_origins = [
+    _normalize_origin(origin)
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://harmoniq-ruddy.vercel.app",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175",
-    ],
+    allow_origins=sorted({*_DEFAULT_CORS_ORIGINS, *_env_cors_origins}),
     allow_methods=["*"],
     allow_headers=["*"],
 )
